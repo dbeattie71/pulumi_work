@@ -1,5 +1,4 @@
 import * as pulumi from '@pulumi/pulumi';
-import * as aws from '@pulumi/aws';
 import * as awsx from '@pulumi/awsx';
 
 // no args in this basic use-case
