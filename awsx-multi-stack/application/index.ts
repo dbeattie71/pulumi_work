@@ -12,17 +12,18 @@ const networkStackName = config.require('networkstackname')
 const networkStack = new StackReference(networkStackName);
 // Get the shared VPC and get the applicable outputs.
 const networkVpc = networkStack.getOutput('vpc') as Output<Vpc>;
+const vpcId = networkVpc.id // use the id to essentiall find the VPC below
 const subnets = networkVpc.publicSubnetIds  // use the public subnets passed back from network stack
-const vpcId = networkVpc.id
 
 // Since the VPC already exists, awsx.ec2.Vpc returns a handle to the existing VPC that can then be used in subsequent
 // awsx.X.X invokes.
-export const vpc = new awsx.ec2.Vpc(`${name}-vpc`, {
+const vpc = new awsx.ec2.Vpc(`${name}-vpc`, {
   vpcId: vpcId 
 });
 
-const loadBalancer = new LoadBalancer(`${name}-lb`, {
-  vpc, // this is an awsx.ec2.Vpc type
-  subnets // this is essentially an array of strings for each subnet ID
+export const loadBalancer = new LoadBalancer(`${name}-lb`, {
+  vpc, // this is an awsx.ec2.Vpc type from the "rehydration" of the vpc  above
+  subnets // this is essentially an array of strings for each subnet ID from the network stack
   });
+
 
