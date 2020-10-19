@@ -3,7 +3,6 @@ import * as awsx from '@pulumi/awsx';
 
 interface Args {
   vpc: awsx.ec2.Vpc;
-  //subnets: pulumi.Input<pulumi.Input<string>[]>;
   subnets: Input<Input<string>[]>;
 }
 
