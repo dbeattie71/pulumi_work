@@ -24,7 +24,7 @@ export const myImportedStorageGw = new aws.storagegateway.Gateway("my-imported-s
     gatewayName: "mitch-storage-gw-3", // remove the parenthetical stuff at the end of the name in AWS console: e.g.  (sgw-8DCF2CE4)",
     gatewayTimezone: "GMT-6:00", // copied from AWS console
     gatewayType: "FILE_S3", // allowed values found here: https://www.pulumi.com/docs/reference/pkg/nodejs/pulumi/aws/storagegateway/#GatewayArgs-gatewayType
-}, {import: "arn:aws:storagegateway:us-east-1:052848974346:gateway/sgw-8DCF2CE4"}) // ARN copied from AWS console
+}, {import: "arn:aws:storagegateway:us-east-1:123455666:gateway/sgw-8DCF2CE4"}) // ARN copied from AWS console
 
 
 // Refer to https://www.pulumi.com/docs/reference/pkg/aws/ec2/instance/#inputs for properties
