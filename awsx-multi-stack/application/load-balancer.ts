@@ -2,9 +2,8 @@ import {Input, ComponentResourceOptions, ComponentResource} from '@pulumi/pulumi
 import * as awsx from '@pulumi/awsx';
 
 interface Args {
-  vpc: awsx.ec2.Vpc;
-  //subnets: pulumi.Input<pulumi.Input<string>[]>;
-  subnets: Input<Input<string>[]>;
+  vpc: awsx.ec2.Vpc; // this type is required if using awsx.lb
+  subnets: Input<Input<string>[]>; // used to pass subnets to awsx.lb
 }
 
 export default class LoadBalancer extends ComponentResource {
@@ -14,6 +13,7 @@ export default class LoadBalancer extends ComponentResource {
     options?: ComponentResourceOptions
   ) {
     super('LoadBalancer', componentName, args, options);
+
     const alb = new awsx.lb.ApplicationLoadBalancer(
       `${componentName}-lb`,
       {

@@ -1,25 +1,23 @@
-import * as pulumi from '@pulumi/pulumi';
+import {Output, ComponentResource, ComponentResourceOptions } from '@pulumi/pulumi';
 import * as awsx from '@pulumi/awsx';
 
 // no args in this basic use-case
 interface Args {
-
 }
 
-
-export default class Vpc extends pulumi.ComponentResource {
-  id: pulumi.Output<string>;
-  publicSubnetIds: Promise<pulumi.Output<string>[]>;
-  privateSubnetIds: Promise<pulumi.Output<string>[]>;
+export default class Vpc extends ComponentResource {
+  id: Output<string>;
+  publicSubnetIds: Promise<Output<string>[]>;
+  privateSubnetIds: Promise<Output<string>[]>;
 
   constructor(
     componentName: string,
     args: Args,
-    options?: pulumi.ComponentResourceOptions
+    options?: ComponentResourceOptions
   ) {
     super('Vpc', componentName, args, options);
 
-    // build VPC with default stuff
+    // build VPC with mostly defaults 
     const vpc = new awsx.ec2.Vpc(
       `${componentName}-vpc`,
       {
