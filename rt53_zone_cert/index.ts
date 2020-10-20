@@ -73,7 +73,7 @@ const webDomainMapping = new aws.apigateway.BasePathMapping(`${nameBase}-webDoma
     domainName: webDomain.id,
 });
 
-// Finally create an A record for our domain that directs to our custom domain.
+// Finally create an alias A record for our domain that directs to our custom domain.
 export const webDnsRecord = new aws.route53.Record(`${nameBase}-webDnsRecord`, {
     name: dnsAlias,
     type: "A",
@@ -85,24 +85,3 @@ export const webDnsRecord = new aws.route53.Record(`${nameBase}-webDnsRecord`, {
     }],
 }, { dependsOn: sslCertValidationIssued });
 
-
-// Create Route53 record for the API gateway
-// const myApiGwRecord = new aws.route53.Record("mitch-api-gw-record", {
-//     zoneId: zoneId,
-//     name: zoneName,
-//     type: "A",
-//     ttl: "300",
-//     records: ["10.0.0.1"],
-// });
-
-// const www_dev = new aws.route53.Record("www-dev", {
-//     name: "www",
-//     records: ["dev.example.com"],
-//     setIdentifier: "dev",
-//     ttl: 5,
-//     type: aws.route53.RecordTypes.CNAME,
-//     weightedRoutingPolicies: [{
-//         weight: 10,
-//     }],
-//     zoneId: example_zone.zoneId,
-// }, providerOpts);
