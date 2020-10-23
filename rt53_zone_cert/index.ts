@@ -16,7 +16,7 @@ const zoneName = config.require("zone")
 const nameBase = config.require("namebase")
 
 // This is the domain alias to front the API gateway
-const dnsAlias = `${nameBase}.${zoneName}`
+export const dnsAlias = `${nameBase}.${zoneName}`
 
 // Use provided zone name to find the Route53 zone and related ID
 // Could create one if so inclined.
@@ -40,6 +40,7 @@ const api = new awsx.apigateway.API(`${nameBase}-gw`, {
         },
     }],
 })
+export const apigatewayUrl =  api.url
 
 // create certificate to be used for the custom domain name
 const sslCert = new aws.acm.Certificate(`${nameBase}-sslCert`, {
@@ -63,7 +64,7 @@ const sslCertValidationIssued = new aws.acm.CertificateValidation(`${nameBase}-s
 
 // Configure an edge-optimized domain for our API Gateway. This will configure a Cloudfront CDN
 // distribution behind the scenes and serve our API Gateway at a custom domain name over SSL.
-export const webDomain = new aws.apigateway.DomainName(`${nameBase}-webCdn`, {
+const webDomain = new aws.apigateway.DomainName(`${nameBase}-webCdn`, {
     certificateArn: sslCertValidationIssued.certificateArn,
     domainName: dnsAlias
 });
@@ -74,7 +75,7 @@ const webDomainMapping = new aws.apigateway.BasePathMapping(`${nameBase}-webDoma
 });
 
 // Finally create an alias A record for our domain that directs to our custom domain.
-export const webDnsRecord = new aws.route53.Record(`${nameBase}-webDnsRecord`, {
+const webDnsRecord = new aws.route53.Record(`${nameBase}-webDnsRecord`, {
     name: dnsAlias,
     type: "A",
     zoneId: zoneId,
@@ -83,5 +84,5 @@ export const webDnsRecord = new aws.route53.Record(`${nameBase}-webDnsRecord`, {
         name: webDomain.cloudfrontDomainName,
         zoneId: webDomain.cloudfrontZoneId,
     }],
-}, { dependsOn: sslCertValidationIssued });
+}); //, { dependsOn: sslCertValidationIssued });
 
