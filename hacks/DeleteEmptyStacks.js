@@ -1,8 +1,8 @@
 /* 
- * Deletes:
+ * This script deletes:
  * Stacks that have never been updated.
  * Stacks that are empty (i.e. have no resources) and haven't been updated for 14 or age-parameter days.
- *
+ * 
  * Parameters
  * orgName - Pulumi organization name
  * accessToken - Pulumi user access token
