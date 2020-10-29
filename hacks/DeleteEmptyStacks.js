@@ -4,10 +4,11 @@
  * Parameters
  * orgName - Pulumi organization name
  * accessToken - Pulumi user access token
+ * age - (optional) override default age in days to delete
  */
 
 
-async function DeleteEmptyStacks(orgName, accessToken) {
+async function DeleteEmptyStacks(orgName, accessToken, age) {
 
     // Stacks that haven't been updated more than this number of days ago are deleted.
     ageDays = 14
@@ -18,6 +19,10 @@ async function DeleteEmptyStacks(orgName, accessToken) {
         console.log(`***** This script will delete stacks that have not been updated in over ${ageDays} ago.`)
         console.log("")
         return
+    }
+
+    if (age !=null) {
+        ageDays = age
     }
 
     response = await fetch(`https://api.pulumi.com/api/console/orgs/${orgName}/repos`, {
