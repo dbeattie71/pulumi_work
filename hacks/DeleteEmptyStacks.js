@@ -1,10 +1,17 @@
 /* 
- * Deletes stacks that are empty (i.e. have no resources) and haven't been touched for "ageDays" days (see code).
+ * Deletes:
+ * Stacks that have never been updated.
+ * Stacks that are empty (i.e. have no resources) and haven't been updated for 14 or age-parameter days.
  *
  * Parameters
  * orgName - Pulumi organization name
  * accessToken - Pulumi user access token
  * age - (optional) override default age in days to delete
+ * 
+ * Example:
+ * DeleteEmptyStacks("MyOrgName","pul-12345566", 10)
+ * Will delete any stacks that have not been updated and
+ * any stacks that haven't been updated for 10 or more days.
  */
 
 
