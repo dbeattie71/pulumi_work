@@ -2,6 +2,7 @@
  * This script deletes:
  * Stacks that have never been updated.
  * Stacks that are empty (i.e. have no resources) and haven't been updated for 14 or age-parameter days.
+ * It also prints warnings if you have stale stacks with resources still in them.
  * 
  * Parameters
  * orgName - Pulumi organization name
@@ -50,6 +51,7 @@ async function DeleteEmptyStacks(orgName, accessToken, age) {
                 stackName = stack.name
                 fullStack = `${orgName}/${projectName}/${stackName}`
                 deleteable = false
+                warnable = false
                 if (!stack.hasOwnProperty('lastUpdate')) {
                     deleteable = true
                 } else {
@@ -57,9 +59,12 @@ async function DeleteEmptyStacks(orgName, accessToken, age) {
                     stackLastUpdateTime = stack.lastUpdate.endTime
                     nowTime = Math.round(Date.now()/1000) // bring down to seconds
                     age = nowTime - stackLastUpdateTime
-                    console.log("time", `${age}, ${ageSeconds}, ${stackLastUpdateTime}, ${nowTime}`)
-                    if ((stack.lastUpdate.resourceCount == 0) && (age > ageSeconds)) {
-                        deleteable = true
+                    if (age > ageSeconds) {
+                        if (stack.lastUpdate.resourceCount == 0) {
+                            deleteable = true
+                        } else {
+                            warnable = true
+                        }
                     }
                 } 
                 if (deleteable) {
@@ -67,6 +72,10 @@ async function DeleteEmptyStacks(orgName, accessToken, age) {
                     await deleteStack(fullStack, accessToken)
                 } else {
                     console.log("Keeping: ", fullStack)
+                    if (warnable) {
+                        lastUpdate = new Date(stackLastUpdateTime*1000).toLocaleDateString()
+                        console.log("   ### Warning: stack "+fullStack+" has not been updated since "+lastUpdate)
+                    }
                 }
             }
         }
