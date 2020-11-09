@@ -7,10 +7,11 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { getBucketObject } from "@pulumi/gcp/storage";
-import { listResourceOutputs } from "@pulumi/pulumi/runtime"
 
 // get stack output
-const baseStack = new pulumi.StackReference("MitchGerdisch/base_stack/dev")
+const config = new pulumi.Config()
+const stackName = config.require("stackName")
+const baseStack = new pulumi.StackReference(stackName)
 export const bucketName = baseStack.getOutput("bucketName")
 export const bucketObjectName = baseStack.getOutput("bucketObjectName")
 
