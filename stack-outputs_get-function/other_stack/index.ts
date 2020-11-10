@@ -25,7 +25,7 @@ const bktObject = pulumi.all([bucketName, bucketObjectName]).apply(([name, id]) 
 });
 
 // use the function output for a resource creation
-const anotherBucketObject = new gcp.storage.BucketObject("another-mitch-object", {
+const anotherBucketObject = new gcp.storage.BucketObject("another-object", {
   bucket: pulumi.interpolate`${bktObject.bucket}`, // interpolate is used "convert" the Output<string> to string.
   content: "This is another bucket object"
 });
