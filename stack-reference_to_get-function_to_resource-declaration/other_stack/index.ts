@@ -8,13 +8,15 @@ import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { getBucketObject } from "@pulumi/gcp/storage";
 
-// get stack output
+// get stack outputs
 const config = new pulumi.Config()
 const stackName = config.require("stackName")
 const baseStack = new pulumi.StackReference(stackName)
 export const bucketName = baseStack.getOutput("bucketName")
 export const bucketObjectName = baseStack.getOutput("bucketObjectName")
 
+
+// Use .all()/.apply() methods to resolve the stack outputs before calling the function
 const bktObject = pulumi.all([bucketName, bucketObjectName]).apply(([name, id]) => {
   return getBucketObject({
     bucket:  name,
@@ -22,9 +24,10 @@ const bktObject = pulumi.all([bucketName, bucketObjectName]).apply(([name, id]) 
   });
 });
 
+// use the function output for a resource creation
 const anotherBucketObject = new gcp.storage.BucketObject("another-mitch-object", {
-  bucket: pulumi.interpolate`${bktObject.bucket}`,
-  content: "This is Mitch's other bucket object"
+  bucket: pulumi.interpolate`${bktObject.bucket}`, // interpolate is used "convert" the Output<string> to string.
+  content: "This is another bucket object"
 });
 
 
