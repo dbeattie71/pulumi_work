@@ -1,5 +1,12 @@
 # Deploys ECS with EC2 container instances (as opposed to using Fargate).
 #
+# NOTE: pulumi destroy will likely fail due to this: 
+# https://github.com/hashicorp/terraform-provider-aws/issues/4852 
+# 
+# Work-around:
+# - pulumi destroy
+# - go to AWS console and delete the autoscaling group.
+#
 
 """An AWS Python Pulumi program"""
 import json
