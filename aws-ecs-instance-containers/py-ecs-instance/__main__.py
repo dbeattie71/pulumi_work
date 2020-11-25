@@ -200,5 +200,3 @@ service = aws.ecs.Service(
 # Provide a clickable link to the nginx service via the load balancer.
 pulumi.export('app_url', pulumi.Output.concat("http://",load_balancer.dns_name))
 pulumi.export('NOTE', 'You may have to wait a minute for AWS to spin up the service. So if the URL throws a 503 error, try again after a bit.')
-pulumi.export('region',region)
-pulumi.export('asg_size',asg_size)

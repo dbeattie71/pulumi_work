@@ -16,7 +16,7 @@ This is a Pulumi project/stack python program that deploys the following:
 - An nginx "hello world" test container and related load balancer and networking.
   One can change to this directory and run `pulumi up` and deploy the stack just as would be done with any Pulumi project.
 
-### `automation`
+### `/automation`
 
 But wait, there's more. This directory contains the automation api code (`index.ts`) that handles deploying and, more importantly, orchestrating the deletion of the stack to avoid a dependency constraint.
 
@@ -45,9 +45,16 @@ refresh complete
 updating stack...
 Updating (dev)
 ...
+
+update summary:
+{
+    "same": 0,
+    "update": 16
+}
+website url: http://load-balancer-xxxxxxxxx.us-east-1.elb.amazonaws.com
 ```
 
-To destroy our stack, we run our automation program with an additional `destroy` argument:
+To destroy the stack, we run the automation program with an additional `destroy` argument:
 
 ```shell
 $ yarn start destroy
@@ -58,4 +65,16 @@ setting up config
 config set
 refreshing stack...
 Refreshing (dev)
+destroying stack ...
+Destroying (dev)
+...
+@ Destroying ...
+...
+Resources:
+    - 16 deleted
+
+The resources in the stack have been deleted, but the history and configuration associated with the stack are still maintained.
+If you want to remove the stack completely, run 'pulumi stack rm dev'.
+
+stack destroy complete
 ```

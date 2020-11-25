@@ -50,7 +50,7 @@ const run = async () => {
     console.info("updating stack...");
     const upRes = await stack.up({ onOutput: console.info });
     console.log(`update summary: \n${JSON.stringify(upRes.summary.resourceChanges, null, 4)}`);
-    console.log(`website url: ${upRes.outputs.url.value}`);
+    console.log(`website url: ${upRes.outputs.app_url.value}`);
 };
 
 run().catch(err => console.log(err));
