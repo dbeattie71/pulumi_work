@@ -1,25 +1,25 @@
 # Deploys ECS with EC2 container instances (as opposed to using Fargate).
 #
-# NOTE: pulumi destroy will likely fail due to this: 
-# https://github.com/hashicorp/terraform-provider-aws/issues/4852 
-# 
-# Work-around:
-# - pulumi destroy
-# - go to AWS console and delete the autoscaling group.
-#
 
 """An AWS Python Pulumi program"""
 import json
 import pulumi
 import pulumi_aws as aws
 
+aws_config = pulumi.Config("aws")
+region = aws_config.get("region") or "us-east-1" 
+avail_zone = region+"a" # e.g. us-east-1a 
+
+stack_config = pulumi.Config("cfg")
+asg_size = int(stack_config.require("autoscalingGroupSize")) 
+
 # Get the default VPC. 
 default_vpc = aws.ec2.get_vpc(default=True)
 default_vpc_subnets = aws.ec2.get_subnet_ids(vpc_id=default_vpc.id)
 
-# Security gorup to access the nginx container.
+# Security group to access the nginx container.
 sg = aws.ec2.SecurityGroup(
-    'my-security-group',
+    'nginx-sg',
     description='Allow HTTP',
     vpc_id=default_vpc.id,
     ingress=[
@@ -28,28 +28,6 @@ sg = aws.ec2.SecurityGroup(
     egress=[
         aws.ec2.SecurityGroupEgressArgs(protocol=-1, from_port=0, to_port=0, cidr_blocks=['0.0.0.0/0'])
     ]
-)
-
-# Application load balancer and related bits
-load_balancer = aws.lb.LoadBalancer(
-    'load-balancer', 
-    load_balancer_type='application', 
-    security_groups=[sg.id],
-    subnets=default_vpc_subnets.ids,
-    internal=False
-)
-atg = aws.lb.TargetGroup(
-    'app-tg',
-	port=80,
-	protocol='HTTP',
-	target_type='ip',
-	vpc_id=default_vpc.id,
-)
-wl = aws.lb.Listener(
-    'web',
-	load_balancer_arn=load_balancer.arn,
-	port=80,
-	default_actions=[aws.lb.ListenerDefaultActionArgs(type='forward', target_group_arn=atg.arn)]
 )
 
 # IAM role for:
@@ -117,8 +95,8 @@ ecs_instance_ami = aws.get_ami(
     ]
 )
 
-# Required user-data so the EC2 container instance will connect to the cluster created below.
-cluster_name = "my-ecs-cluster"
+# User-data so the EC2 container instance will connect to the created cluster. 
+cluster_name = "my-fancy-new-ecs-cluster"
 user_data='''#!/bin/bash
 echo ECS_CLUSTER={cluster_nm} >> /etc/ecs/ecs.config'''.format(cluster_nm=cluster_name)
 
@@ -134,10 +112,10 @@ launch_config = aws.ec2.LaunchConfiguration(
 # Create cluster and related bits (i.e. autoscaling group and CapacityProvider)
 auto_scaling = aws.autoscaling.Group(
     'auto-scaling',
-    availability_zones=['us-east-1a'],  
+    availability_zones=[avail_zone],  
     launch_configuration=launch_config.name,
-    min_size=1,
-    max_size=1,
+    min_size=asg_size,
+    max_size=asg_size,
     protect_from_scale_in=False
 )
 cp = aws.ecs.CapacityProvider(
@@ -154,6 +132,28 @@ cluster = aws.ecs.Cluster(
     'cluster',
     name=cluster_name, # Use explicit name property so that we know the cluster name - this is required for the user data above.
     capacity_providers=[cp.name],
+)
+
+# Application load balancer and related bits
+load_balancer = aws.lb.LoadBalancer(
+    'load-balancer', 
+    load_balancer_type='application', 
+    security_groups=[sg.id],
+    subnets=default_vpc_subnets.ids,
+    internal=False,
+)
+atg = aws.lb.TargetGroup(
+    'app-tg',
+	port=80,
+	protocol='HTTP',
+	target_type='ip',
+	vpc_id=default_vpc.id,
+)
+wl = aws.lb.Listener(
+    'web',
+	load_balancer_arn=load_balancer.arn,
+	port=80,
+	default_actions=[aws.lb.ListenerDefaultActionArgs(type='forward', target_group_arn=atg.arn)]
 )
 
 # Task definition for creating our containers.
@@ -173,7 +173,8 @@ task_def = aws.ecs.TaskDefinition(
 			'hostPort': 80,
 			'protocol': 'tcp'
 		}]
-	}])
+	}]),
+    opts=pulumi.ResourceOptions(depends_on=[cluster])
 )
 
 # Service declaration to build the service on the ECS cluster.
@@ -198,3 +199,6 @@ service = aws.ecs.Service(
 
 # Provide a clickable link to the nginx service via the load balancer.
 pulumi.export('app_url', pulumi.Output.concat("http://",load_balancer.dns_name))
+pulumi.export('NOTE', 'You may have to wait a minute for AWS to spin up the service. So if the URL throws a 503 error, try again after a bit.')
+pulumi.export('region',region)
+pulumi.export('asg_size',asg_size)
