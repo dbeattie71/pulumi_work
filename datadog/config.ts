@@ -13,5 +13,6 @@ export function checkKeys() {
   const appKey = config.get("appKey") || "missing"
   if (apiKey == "missing") keyMessage("apiKey")
   if (appKey == "missing") keyMessage("appKey")
+  return apiKey
 }
 
