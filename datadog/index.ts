@@ -2,7 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as datadog from "@pulumi/datadog";
-import {checkKeys, checkDog, setupDatadog} from "./datadog";
+import {checkKeys, setupDatadog} from "./datadog";
 
 const apiKey = checkKeys();
 

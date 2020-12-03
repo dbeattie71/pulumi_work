@@ -69,13 +69,6 @@ export function setupDatadog(target: TargetType) {
   return dogDashboard
 }
 
-//// Datadog is set up only if the "datadog" config variable is set to true.
-export function checkDog() {
-  const config = new pulumi.Config();
-  const woof = (config.get("datadog") === "true") || false
-  return woof
-}
-
 //// Datadog API and APP Key Check 
 function keyMessage(keyName: string) {
   console.log(`**** MISSING ${keyName} config ****`)
