@@ -2,13 +2,11 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as datadog from "@pulumi/datadog";
-import {checkKeys, ddogWorthy} from "./config";
-import {setupDatadog} from "./datadog";
+import {checkKeys, checkDog, setupDatadog} from "./datadog";
 
 const apiKey = checkKeys();
-const dDoggy = ddogWorthy();
 
-const nameBase = "ddog-demo"
+const nameBase = "dog-"
 const vpcCidr = "10.0.0.0/16"
 const vpcName = nameBase+"-vpc"
 const sgName = nameBase+"-sg"
@@ -42,14 +40,11 @@ sg.createEgressRule("outbound-access", {
     description: "allow outbound access to anywhere",
 });
 
-// Some userdata to install Datadog agent if ddogWorthy
-let userData = pulumi.interpolate``
-if (dDoggy) {
-    userData = pulumi.interpolate `#!/bin/bash
+// Some userdata to install Datadog agent
+const userData = pulumi.interpolate `#!/bin/bash
 export DD_API_KEY=${apiKey}
 export DD_AGENT_MAJOR_VERSION=7 
 bash -c "$(curl -L https://raw.githubusercontent.com/DataDog/datadog-agent/master/cmd/agent/install_script.sh)"`
-}
 
 // Launch the instances of various types and counts.
 const ubuntu_ami = aws.getAmi({
@@ -73,19 +68,15 @@ const instance = new aws.ec2.Instance(vmName, {
     tags: {
         "Name": vmName,
     },
-    keyName: "mitch-ssh-key"
 });
 
-if (dDoggy) {
-    const ddogSetup = instance.id.apply(hostId => {
-        const target = {
-            "hostName": vmName,
-            "hostId": hostId,
-        }
-        setupDatadog(target);
-    })
-}
+const dogSetup = instance.id.apply(hostId => {
+    const target = {
+        "hostName": vmName,
+        "hostId": hostId,
+    }
+    return setupDatadog(target);
+})
 
 export const instanceId = instance.id
-export const instanceIp = instance.publicIp
-
+export const DashboardUrl = pulumi.interpolate`https://app.datadoghq.com${dogSetup.url}`
