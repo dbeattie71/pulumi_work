@@ -71,16 +71,20 @@ export function setupDatadog(target: TargetType) {
 
 //// Datadog API and APP Key Check 
 function keyMessage(keyName: string) {
-  console.log(`**** MISSING ${keyName} config ****`)
-  console.log("**** Get key from DataDog console: Integrations -> APIs")
-  console.log(`**** And execute the command: pulumi config set ${keyName} --secret`)
-  console.log("****")
+  console.log(`*** MISSING ${keyName} config`)
+  console.log("*** DataDog Dashboard will NOT be created.")
+  console.log("*** Get key from DataDog console: Integrations -> APIs")
+  console.log(`*** And execute the command: pulumi config set ${keyName} --secret`)
+  console.log("***")
 }
 export function checkKeys() {
   const config = new pulumi.Config();
-  const apiKey = config.get("apiKey") || "missing"
-  const appKey = config.get("appKey") || "missing"
-  if (apiKey == "missing") keyMessage("apiKey")
-  if (appKey == "missing") keyMessage("appKey")
-  return apiKey
+  let apiKey = config.get("apiKey") || "no-dog"
+  let appKey = config.get("appKey") || "no-dog"
+  if (apiKey === "no-dog") keyMessage("apiKey")
+  if (appKey === "no-dog") {
+    keyMessage("appKey")
+    apiKey = "no-dog"
+  }
+  return apiKey // we overload apiKey to indicate whether or not we should do DataDog stuff
 }

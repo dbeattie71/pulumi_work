@@ -6,7 +6,7 @@ import {checkKeys, setupDatadog} from "./datadog";
 
 const apiKey = checkKeys();
 
-const nameBase = "dog-"
+const nameBase = "dog-demo-"
 const vpcCidr = "10.0.0.0/16"
 const vpcName = nameBase+"-vpc"
 const sgName = nameBase+"-sg"
@@ -70,13 +70,18 @@ const instance = new aws.ec2.Instance(vmName, {
     },
 });
 
-const dogSetup = instance.id.apply(hostId => {
-    const target = {
-        "hostName": vmName,
-        "hostId": hostId,
-    }
-    return setupDatadog(target);
-})
+// if the key check didn't find the requisite Datadog api keys in the config, then don't try to do anything Datadog-ish
+let DashboardUrl = pulumi.interpolate`Dashboard not created.`
+if (apiKey != "no-dog") {
+    const dogSetup = instance.id.apply(hostId => {
+        const target = {
+            "hostName": vmName,
+            "hostId": hostId,
+        }
+        return setupDatadog(target);
+    })
+    DashboardUrl = pulumi.interpolate`https://app.datadoghq.com${dogSetup.url}`
+}
 
 export const instanceId = instance.id
-export const DashboardUrl = pulumi.interpolate`https://app.datadoghq.com${dogSetup.url}`
+export { DashboardUrl } 
