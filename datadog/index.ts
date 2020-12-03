@@ -2,9 +2,11 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as datadog from "@pulumi/datadog";
-import {checkKeys} from "./config";
+import {checkKeys, ddogWorthy} from "./config";
+import {setupDatadog} from "./datadog";
 
 const apiKey = checkKeys();
+const dDoggy = ddogWorthy();
 
 const nameBase = "ddog-demo"
 const vpcCidr = "10.0.0.0/16"
@@ -40,11 +42,14 @@ sg.createEgressRule("outbound-access", {
     description: "allow outbound access to anywhere",
 });
 
-// Some userdata to install Datadog agent
-const userData = pulumi.interpolate `#!/bin/bash
+// Some userdata to install Datadog agent if ddogWorthy
+let userData = pulumi.interpolate``
+if (dDoggy) {
+    userData = pulumi.interpolate `#!/bin/bash
 export DD_API_KEY=${apiKey}
 export DD_AGENT_MAJOR_VERSION=7 
 bash -c "$(curl -L https://raw.githubusercontent.com/DataDog/datadog-agent/master/cmd/agent/install_script.sh)"`
+}
 
 // Launch the instances of various types and counts.
 const ubuntu_ami = aws.getAmi({
@@ -71,66 +76,15 @@ const instance = new aws.ec2.Instance(vmName, {
     keyName: "mitch-ssh-key"
 });
 
-const ddogMonitor = instance.id.apply(hostId => {
-    // Create Datadog Monitor for the Instance just created
-    const ddogMonitor = new datadog.Monitor(nameBase+"-monitor", {
-        name: vmName+"-cpu",
-        message: vmName+"-cpu Monitor",
-        type: "metric alert",
-        query: "avg(last_1m):avg:datadog.trace_agent.cpu_percent{host:"+hostId+"} > 10"
+if (dDoggy) {
+    const ddogSetup = instance.id.apply(hostId => {
+        const target = {
+            "hostName": vmName,
+            "hostId": hostId,
+        }
+        setupDatadog(target);
     })
-
-    const ddogDashboard = new datadog.Dashboard(nameBase+"-dashboard", {
-        layoutType: "ordered",
-        title: "Pulumi Created Dashboard",
-        widgets: [
-            {
-                alertValueDefinition: {
-                "alertId": ddogMonitor.id,
-                "title": ddogMonitor.name,
-                "titleSize": "16",
-                "titleAlign": "left",
-                "unit": "auto",
-                "textAlign": "left",
-                "precision": 2
-                },
-            },
-            {
-                timeseriesDefinition: {
-                "title": "Avg of CPU Utilization over host:"+hostId,
-                "titleSize": "16",
-                "titleAlign": "left",
-                "showLegend": false,
-                "time": {},
-                "requests": [
-                  {
-                    "q": "avg:system.cpu.user{host:"+hostId+"}",
-                    "style": {
-                      "palette": "dog_classic",
-                      "lineType": "solid",
-                      "lineWidth": "normal"
-                    },
-                    "displayType": "line"
-                  }
-                ],
-                "yaxis": {
-                  "scale": "linear",
-                  "label": "",
-                  "includeZero": true,
-                  "min": "auto",
-                  "max": "auto"
-                },
-                "markers": []
-              }
-            }
-        ]
-    })
-})
-
-export const test = pulumi.output(datadog.getDashboard({
-    name: "Mitch Test",
-}, { async: true }));
-
+}
 
 export const instanceId = instance.id
 export const instanceIp = instance.publicIp

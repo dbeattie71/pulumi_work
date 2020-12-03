@@ -16,3 +16,9 @@ export function checkKeys() {
   return apiKey
 }
 
+export function ddogWorthy() {
+  const config = new pulumi.Config();
+  const ddogWorthy = (config.get("ddogWorthy") === "true") || false
+  return ddogWorthy
+}
+

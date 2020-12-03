@@ -4,3 +4,4 @@ config:
     secure: AAABAPpeqrHcYLHntK1UXL7GRlqIolEcqg5KKkYkLcw5/HYJEkNma670sHvja7h7ELuojJC1XQICcuxMSDDyGA==
   datadog:appKey:
     secure: AAABAE84AVEkboPzxEK47Da6/eCvg+kLYxFnUZuc4fL+ZW7APPyEVA0FRUcKjM6UYMXLr4odQaDKR6oJjr1uD9O0RdBQsNk1
+  datadog:ddogWorthy: "true"
