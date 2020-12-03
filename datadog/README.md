@@ -1,3 +1,3 @@
 # Datadog via Pulumi
 
-Investigating the Pulumi Datadog provider
+A Demo showing use of the Pulumi Datadog provider
