@@ -53,8 +53,8 @@ const redis = new cache.Redis(`${nameBase}-redis`, {
     location: resourceGroup.location,
     sku: {
         capacity: 1,
-        family: "P",
-        name: "Premium",
+        family: "C",
+        name: "Basic",
     },
 });
 
