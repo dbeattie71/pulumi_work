@@ -63,16 +63,6 @@ export const frontendUrl = frontEnd.url
 export const backendApiUrl = beapi.url
 export const crmApiUrl = crm.url
 
-// const appinsights = new azure_nextgen.insights.latest.Component("appinsights", {
-//   resourceName: "appi-puluminextgetn01",
-//   location: resourceGroup.location,
-//   applicationType: "web",
-//   kind: "web",
-//   resourceGroupName: resourceGroup.name,
-// });
-
-// export const instrumentationKey = appinsights.instrumentationKey;
-
 // const stcards = new azure_nextgen.storage.latest.StorageAccount("stcards", {
 //     resourceGroupName: resourceGroup.name,
 //     accountName: `${nameBase}`+"stpuluminextgen01",
@@ -92,14 +82,6 @@ export const crmApiUrl = crm.url
 //     containerName: "$web",
 // });
 
-
-// const webapp02 = new azure_nextgen.web.v20200601.WebApp("webappcrm", {
-//     resourceGroupName: resourceGroup.name,
-//     location: resourceGroup.location,
-//     name: "app-apicrmpulumi02",
-//     enabled: true,
-//     serverFarmId: appServicePlan.id,
-// });
 
 // const vault = new azure_nextgen.keyvault.latest.Vault("vault01", {
 //     location: resourceGroup.location,

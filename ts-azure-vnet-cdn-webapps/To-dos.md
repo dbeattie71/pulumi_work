@@ -23,9 +23,11 @@
 
 - DONE: CRM API Webapp
 
-# Redis Cache
+# Common Bits
 
 - DONE: Common Redis Cache
+- NOT DONE: "digrewards stcards" - is that just another storage account?
+- NOT DONE: Key Vault
 
 # AppInsights Registrations
 
@@ -39,8 +41,3 @@ I think I have this set up correctly.
 
 - NOT DONE: CDNs ()
   - Can you show me what you are referring to in UI
-
-# General
-
-- NOT DONE: Address subnet creation race condition that occasionally stops a subnet from being created the first time - maybe dependsOn vnet or something?
-  error: autorest/azure: Service returned an error. Status=<nil> Code="AnotherOperationInProgress" Message="Another operation on this or dependent resource is in progress. To retrieve status of the operation use uri: https://management.azure.com/subscriptions/32b9cb2e-69be-4040-80a6-02cd6b2cc5ec/providers/Microsoft.Network/locations/uksouth/operations/3484c84f-0320-4c7a-9f63-d9e2449a9fea?api-version=2020-07-01." Details=[]
