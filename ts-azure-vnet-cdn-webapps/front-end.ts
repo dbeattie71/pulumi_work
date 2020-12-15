@@ -1,8 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { Input, Output } from "@pulumi/pulumi"
 import * as storage from "@pulumi/azure/storage";
-import * as azure_nextgen from "@pulumi/azure-nextgen";
-import * as azure from "@pulumi/azure";
+import * as cdn from "@pulumi/azure-nextgen/cdn/latest";
 
 // These are the input properties supported by the custom resource.
 // Can be anything that makes sense. Supporting location and tags in this example.
@@ -11,9 +10,6 @@ import * as azure from "@pulumi/azure";
 interface FrontEndArgs {
     resourceGroupName: Input<string>;
     location: Input<string>;
-    tags?: pulumi.Input <{
-        [key: string]: pulumi.Input<string>;
-    }>;
 };
 
 export class FrontEnd extends pulumi.ComponentResource {
@@ -34,7 +30,7 @@ export class FrontEnd extends pulumi.ComponentResource {
         super("custom:x:FrontEnd", name, args, opts);
 
         // SPA storage account
-        const sa = new azure.storage.Account(`${name}sa`, {
+        const sa = new storage.Account(`${name}sa`, {
             resourceGroupName: args.resourceGroupName,
             location: args.location,
             accountTier: "Standard",
@@ -50,7 +46,7 @@ export class FrontEnd extends pulumi.ComponentResource {
 
         //// FOR TESTING PURPOSES ////
         // Putting a file up in Blob for the "SPA" so there is something to test with and validate WAF/CDN/ENDPOINT stuff is working.
-        const fakeSpa = new azure.storage.Blob("index.html", {
+        const fakeSpa = new storage.Blob("index.html", {
             name: "index.html",
             storageAccountName: sa.name,
             storageContainerName: "$web", 
@@ -60,7 +56,7 @@ export class FrontEnd extends pulumi.ComponentResource {
         }, {parent: this })
 
         // CDN profile
-        const cdn = new azure_nextgen.cdn.latest.Profile(`${name}-cdn`, {
+        const cdnProfile = new cdn.Profile(`${name}-cdn`, {
             resourceGroupName: args.resourceGroupName,
             location: "global",
             profileName: `${name}-cdn-profile`,
@@ -70,10 +66,10 @@ export class FrontEnd extends pulumi.ComponentResource {
         }, {parent: this });
 
         // Endpoint
-        const endpoint = new azure_nextgen.cdn.latest.Endpoint(`${name}-endpoint`, {
+        const endpoint = new cdn.Endpoint(`${name}-endpoint`, {
             resourceGroupName: args.resourceGroupName,
-            location: cdn.location,
-            profileName: cdn.name,
+            location: cdnProfile.location,
+            profileName: cdnProfile.name,
             endpointName: `${name}-endpoint`,
             isHttpAllowed: false,
             isHttpsAllowed: true,

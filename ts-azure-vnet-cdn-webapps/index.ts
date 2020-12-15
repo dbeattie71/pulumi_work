@@ -1,9 +1,11 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as azure from "@pulumi/azure";
 import * as azure_nextgen from "@pulumi/azure-nextgen";
+import * as network from "@pulumi/azure-nextgen/network/latest";
 import * as random from "@pulumi/random";
 import { BaseNet } from "./base-net";
 import { FrontEnd } from "./front-end";
+import { BackEnd } from "./back-end";
 
 
 //// Use config to store a base name for resources 
@@ -15,20 +17,24 @@ const nameBase = config.get("nameBase") || "mitchhrd"
 //// Create the base networking environment that is used as a foundation for the other resources.
 const baseNet = new BaseNet(nameBase, {
     location: "uksouth",
-    cidrBlock: "10.4.1.0/24",
-    subnetCidrBlocks: ["10.4.1.0/27", "10.4.1.32/27", "10.4.1.64/27"]
+    vnetCidr: "10.4.1.0/24",
+    spaCidr: "10.4.1.0/27", 
+    beCidr: "10.4.1.32/27", 
+    crmCidr: "10.4.1.64/27",
 });
-//// Values from baseNet to be used later
 const resourceGroup = baseNet.resourceGroup
-const spaSubnet = baseNet.subnets[0]
-const beSubnet = baseNet.subnets[1]
-const crmSubnet = baseNet.subnets[2]
-
 
 // Create the frontend components:
 const frontEnd = new FrontEnd(nameBase, {
     resourceGroupName: resourceGroup.name,
-    location: resourceGroup.location
+    location: resourceGroup.location,
+})
+
+// Create the backend API components
+const backEnd = new Backend(nameBase, {
+    resourceGroupName: resourceGroup.name,
+    location: resourceGroup.location,
+    subnetId: baseNet.beSubnet.id,
 })
 
 export const endpointUrl = frontEnd.endpointUrl
@@ -42,24 +48,6 @@ export const endpointUrl = frontEnd.endpointUrl
 // });
 
 // export const instrumentationKey = appinsights.instrumentationKey;
-
-// // The security groups when implemented could be part of the BaseEnv resource.
-// // But wasn't sure what the plan is for them since they were commented out.
-// const nsgSpa = new azure_nextgen.network.latest.NetworkSecurityGroup("nsgSpa", {
-//     location: resourceGroup.location,
-//     networkSecurityGroupName: "nsg-spa",
-//     resourceGroupName: resourceGroup.name,
-// });
-// const nsgBeApi = new azure_nextgen.network.latest.NetworkSecurityGroup("nsgBeApi", {
-//     location: resourceGroup.location,
-//     networkSecurityGroupName: "nsg-beapi",
-//     resourceGroupName: resourceGroup.name,
-// });
-// const nsgCrm = new azure_nextgen.network.latest.NetworkSecurityGroup("nsgCrm", {
-//     location: resourceGroup.location,
-//     networkSecurityGroupName: "nsg-crm",
-//     resourceGroupName: resourceGroup.name,
-// });
 
 // const stcards = new azure_nextgen.storage.latest.StorageAccount("stcards", {
 //     resourceGroupName: resourceGroup.name,
@@ -84,35 +72,7 @@ export const endpointUrl = frontEnd.endpointUrl
 //     containerName: "$web",
 // });
 
-// const appServicePlan = new azure_nextgen.web.latest.AppServicePlan("appServicePlan", {
-//     resourceGroupName: resourceGroup.name,
-//     kind: "app",
-//     location: resourceGroup.location,
-//     name: "plan-puluminextgen01",
-//     sku: {
-//         capacity: 1,
-//         family: "D",
-//         name: "D1",
-//         size: "D1",
-//         tier: "Shared",
-//     },
-// });
 
-// const webapp01 = new azure_nextgen.web.v20200601.WebApp("webappapi", {
-//     resourceGroupName: resourceGroup.name,
-//     location: resourceGroup.location,
-//     name: "app-puluminextgen01",
-//     enabled: true,
-//     serverFarmId: appServicePlan.id,
-//     siteConfig: {
-//         cors: {
-//             allowedOrigins: [
-//                      "https://pulumitask.example.com",
-//                     "https://stspapulumi001.z33.web.core.windows.net/",
-                    
-//             ]},
-//     },
-// });
 // const webapp02 = new azure_nextgen.web.v20200601.WebApp("webappcrm", {
 //     resourceGroupName: resourceGroup.name,
 //     location: resourceGroup.location,
