@@ -9,13 +9,14 @@ import * as web from "@pulumi/azure-nextgen/web/latest";
 interface BackEndArgs {
     resourceGroupName: Input<string>;
     location: Input<string>;
+    allowedAccess: Input<string>;
 };
 
-export class BackEndArgs extends pulumi.ComponentResource {
+export class BackEnd extends pulumi.ComponentResource {
     // The output properties for the custom resource.
     // Can be anything that makes sense. 
     // In this case, the endpoint URL is returned.
-    public readonly webappUrl: Output<string>;
+    public readonly url: Output<string>;
     //private readonly sa: storage.Account;
 
 
@@ -31,10 +32,10 @@ export class BackEndArgs extends pulumi.ComponentResource {
         const resourceGroupName = args.resourceGroupName
         const location = args.location
 
-        const beAppServicePlan = new web.AppServicePlan(`${name}-be-svcplan`, {
+        const beAppServicePlan = new web.AppServicePlan(`${name}-api-svcplan`, {
             resourceGroupName: resourceGroupName,
             location: location,
-            name: `${name}-be-svcplan`,
+            name: `${name}-api-svcplan`,
             kind: "app",
             sku: {
                 capacity: 1,
@@ -45,25 +46,43 @@ export class BackEndArgs extends pulumi.ComponentResource {
             }
         }, {parent: this})
 
-        const beWebApp = new web.WebApp(`${name}-be-webapp`, {
+        const beWebApp = new web.WebApp(`${name}-api-webapp`, {
             resourceGroupName: resourceGroupName,
             location: location,
-            name: `${name}-be-webapp`,
+            serverFarmId: beAppServicePlan.id,
+            name: `${name}-api-webapp`,
             enabled: true,
-            serverFarmId: appServicePlan.id,
             siteConfig: {
-                cors: {
-                    allowedOrigins: [
-                             "https://pulumitask.example.com",
-                            "https://stspapulumi001.z33.web.core.windows.net/",
+
+            ipSecurityRestrictions: [
+                // Allow from frontend subnet
+                { 
+                    ipAddress: args.allowedAccess,
+                    action: "Allow",
+                    tag: "Default",
+                    priority: 100,
+                    name: "inboundFromFrontEnd"
+                },
+                {
+                    ipAddress: "Any",
+                    action: "Deny",
+                    priority: 2147483647,
+                    name: "Deny all",
+                    description: "Deny all access"
+                }
+            ],
+        }
+            //     cors: {
+            //         allowedOrigins: [
+            //                  "https://pulumitask.example.com",
+            //                 "https://stspapulumi001.z33.web.core.windows.net/",
                             
-                    ]},
-            },
-        });
+            //         ]},
+        }, {parent: this});
 
         // This tells pulumi that resource creation is complete and so will register with the stack
         this.registerOutputs({});
 
-
+        this.url = pulumi.interpolate`https://${beWebApp.defaultHostName}/`;
     }
 }

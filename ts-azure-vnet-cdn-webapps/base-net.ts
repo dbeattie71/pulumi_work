@@ -111,6 +111,10 @@ export class BaseNet extends pulumi.ComponentResource {
             virtualNetworkName: this.network.name,
             subnetName: `${name}-be-subnet`,
             addressPrefix: args.beCidr,
+            serviceEndpoints: [{
+                service: "Microsoft.AzureCosmosDB",
+            }],
+            
         }, { parent: this.network, })
 
         const beSecGrp = new network.NetworkSecurityGroup(`${name}-be-nsg`, {

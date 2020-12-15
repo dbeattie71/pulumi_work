@@ -16,7 +16,7 @@ export class FrontEnd extends pulumi.ComponentResource {
     // The output properties for the custom resource.
     // Can be anything that makes sense. 
     // In this case, the endpoint URL is returned.
-    public readonly endpointUrl: Output<string>;
+    public readonly url: Output<string>;
     //private readonly sa: storage.Account;
 
 
@@ -230,7 +230,7 @@ export class FrontEnd extends pulumi.ComponentResource {
         // This tells pulumi that resource creation is complete and so will register with the stack
         this.registerOutputs({});
 
-        this.endpointUrl = pulumi.interpolate`https://${endpoint.hostName}/`;
+        this.url= pulumi.interpolate`https://${endpoint.hostName}/`;
 
     }
 }

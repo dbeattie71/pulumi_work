@@ -1,8 +1,4 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as azure from "@pulumi/azure";
-import * as azure_nextgen from "@pulumi/azure-nextgen";
-import * as network from "@pulumi/azure-nextgen/network/latest";
-import * as random from "@pulumi/random";
 import { BaseNet } from "./base-net";
 import { FrontEnd } from "./front-end";
 import { BackEnd } from "./back-end";
@@ -14,13 +10,18 @@ import { BackEnd } from "./back-end";
 const config = new pulumi.Config();
 const nameBase = config.get("nameBase") || "mitchhrd"
 
+const vnetCidr = "10.4.1.0/24"
+const spaCidr = "10.4.1.0/27"
+const beCidr = "10.4.1.32/27" 
+const crmCidr =  "10.4.1.64/27"
+
 //// Create the base networking environment that is used as a foundation for the other resources.
 const baseNet = new BaseNet(nameBase, {
     location: "uksouth",
-    vnetCidr: "10.4.1.0/24",
-    spaCidr: "10.4.1.0/27", 
-    beCidr: "10.4.1.32/27", 
-    crmCidr: "10.4.1.64/27",
+    vnetCidr: vnetCidr,
+    spaCidr: spaCidr,
+    beCidr: beCidr, 
+    crmCidr: crmCidr,
 });
 const resourceGroup = baseNet.resourceGroup
 
@@ -31,13 +32,23 @@ const frontEnd = new FrontEnd(nameBase, {
 })
 
 // Create the backend API components
-const backEnd = new Backend(nameBase, {
+const beapi = new BackEnd(`${nameBase}-be`, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location,
-    subnetId: baseNet.beSubnet.id,
+    allowedAccess: spaCidr, 
 })
 
-export const endpointUrl = frontEnd.endpointUrl
+// Create the CRM API components 
+const crm = new BackEnd(`${nameBase}-crm`, {
+    resourceGroupName: resourceGroup.name,
+    location: resourceGroup.location,
+    allowedAccess: beCidr, 
+})
+
+
+export const frontendUrl = frontEnd.url
+export const backendApiUrl = beapi.url
+export const crmApiUrl = crm.url
 
 // const appinsights = new azure_nextgen.insights.latest.Component("appinsights", {
 //   resourceName: "appi-puluminextgetn01",
@@ -62,10 +73,6 @@ export const endpointUrl = frontEnd.endpointUrl
 //       CostCenter: "VSE",
 //     }*/
 // });
-
-
-
-
 // const blobContainer = new azure_nextgen.storage.latest.BlobContainer("blobContainer", {
 //     resourceGroupName: resourceGroup.name,
 //     accountName: stcards.name,
