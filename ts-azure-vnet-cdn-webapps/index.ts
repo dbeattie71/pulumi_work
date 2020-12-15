@@ -1,4 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
+import * as cache from "@pulumi/azure-nextgen/cache/latest";
 import { BaseNet } from "./base-net";
 import { FrontEnd } from "./front-end";
 import { BackEnd } from "./back-end";
@@ -44,6 +45,18 @@ const crm = new BackEnd(`${nameBase}-crm`, {
     location: resourceGroup.location,
     allowedAccess: beCidr, 
 })
+
+// Create the Redis Cache
+const redis = new cache.Redis(`${nameBase}-redis`, {
+    name: `${nameBase}-redis`,
+    resourceGroupName: resourceGroup.name,
+    location: resourceGroup.location,
+    sku: {
+        capacity: 1,
+        family: "P",
+        name: "Premium",
+    },
+});
 
 
 export const frontendUrl = frontEnd.url

@@ -30,7 +30,7 @@ export class FrontEnd extends pulumi.ComponentResource {
         super("custom:x:FrontEnd", name, args, opts);
 
         // SPA storage account
-        const sa = new storage.Account(`${name}sa`, {
+        const sa = new storage.Account(`${name}spasa`, {
             resourceGroupName: args.resourceGroupName,
             location: args.location,
             accountTier: "Standard",
@@ -55,22 +55,71 @@ export class FrontEnd extends pulumi.ComponentResource {
             contentType: "text/html"
         }, {parent: this })
 
-        // CDN profile
-        const cdnProfile = new cdn.Profile(`${name}-cdn`, {
+        // CDN, WAF, and Endpoint
+        const cdnProfile = new cdn.Profile(`${name}-spa-cdn-profile`, {
             resourceGroupName: args.resourceGroupName,
             location: "global",
-            profileName: `${name}-cdn-profile`,
+            profileName: `${name}-spa-cdn-profile`,
             sku: {
                 name: "Standard_Microsoft",
             },
         }, {parent: this });
 
+        // Example WAF Setup - should be customized accordingly
+        const cdnWafRules = new cdn.Policy(`${name}spawafrules`, {
+            policyName: `${name}spawafrules`,
+            // example using managed rules
+            managedRules: {
+                managedRuleSets: [{
+                    ruleSetType: "DefaultRuleSet",
+                    ruleSetVersion: "1.0",
+                }],
+            },
+            // example using custom rules
+            customRules: {
+                rules: [
+                    {
+                        action: "Block",
+                        enabledState: "Enabled",
+                        matchConditions: [{
+                            matchValue: [
+                                "US",
+                                "MX",
+                                "CA",
+                            ],
+                            matchVariable: "RemoteAddr",
+                            negateCondition: true,
+                            operator: "GeoMatch",
+                        }],
+                        name: "BlockOutsideNorthAmerica",
+                        priority: 10,
+                    },
+                    {
+                        action: "Allow",
+                        enabledState: "Enabled",
+                        matchConditions: [{
+                            matchValue: ["/login"],
+                            matchVariable: "RequestUri",
+                            negateCondition: false,
+                            operator: "Contains",
+                        }],
+                        name: "AllowUnauthenticatedLogin",
+                        priority: 30,
+                    },
+                ],
+            },
+            location: cdnProfile.location,
+            resourceGroupName: args.resourceGroupName,
+            sku: cdnProfile.sku
+        }, {parent: this});
+
         // Endpoint
-        const endpoint = new cdn.Endpoint(`${name}-endpoint`, {
+        const endpoint = new cdn.Endpoint(`${name}-spa-endpoint`, {
             resourceGroupName: args.resourceGroupName,
             location: cdnProfile.location,
             profileName: cdnProfile.name,
-            endpointName: `${name}-endpoint`,
+            webApplicationFirewallPolicyLink: { id: cdnWafRules.id},
+            endpointName: `${name}-spa-endpoint`,
             isHttpAllowed: false,
             isHttpsAllowed: true,
             originHostHeader: sa.primaryWebHost,

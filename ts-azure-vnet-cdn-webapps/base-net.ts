@@ -77,7 +77,7 @@ export class BaseNet extends pulumi.ComponentResource {
             networkSecurityGroupName: `${name}-spa-nsg`,
             resourceGroupName: rgName,
             location: location
-        })
+        }, {parent: this})
         const spaDenyAllDefault =  new network.SecurityRule(`${name}-spa-deny-all`, {
             resourceGroupName: rgName,
             networkSecurityGroupName: spaSecGrp.name,
@@ -90,7 +90,7 @@ export class BaseNet extends pulumi.ComponentResource {
             sourceAddressPrefix: "*",
             sourcePortRange: "*",
             priority: 1100,
-        });
+        }, {parent: this});
         const spaHttps =  new network.SecurityRule(`${name}-spa-https`, {
             resourceGroupName: rgName,
             networkSecurityGroupName: spaSecGrp.name,
@@ -103,7 +103,7 @@ export class BaseNet extends pulumi.ComponentResource {
             sourceAddressPrefix: "*",
             sourcePortRange: "*",
             priority: 100,
-        });
+        }, {parent: this});
 
         // backend API subnet and rules
         this.beSubnet = new network.Subnet(`${name}-be-subnet`, {
@@ -121,7 +121,7 @@ export class BaseNet extends pulumi.ComponentResource {
             networkSecurityGroupName: `${name}-be-nsg`,
             resourceGroupName: rgName,
             location: location
-        })
+        }, { parent: this })
 
         const beDenyAllDefault =  new network.SecurityRule(`${name}-be-deny-all`, {
             resourceGroupName: rgName,
@@ -135,7 +135,7 @@ export class BaseNet extends pulumi.ComponentResource {
             sourceAddressPrefix: "*",
             sourcePortRange: "*",
             priority: 1200,
-        });
+        }, { parent: this });
         const beHttps =  new network.SecurityRule(`${name}-be-https`, {
             resourceGroupName: rgName,
             networkSecurityGroupName: spaSecGrp.name,
@@ -148,7 +148,7 @@ export class BaseNet extends pulumi.ComponentResource {
             sourceAddressPrefix: args.spaCidr,
             sourcePortRange: "*",
             priority: 200,
-        })
+        }, { parent: this, })
 
         // CRM API subnet and rules
         this.crmSubnet = new network.Subnet(`${name}-crm-subnet`, {
@@ -162,7 +162,7 @@ export class BaseNet extends pulumi.ComponentResource {
             networkSecurityGroupName: `${name}-crm-nsg`,
             resourceGroupName: rgName,
             location: location
-        })
+        }, {parent: this})
 
         const crmDenyAllDefault =  new network.SecurityRule(`${name}-crm-deny-all`, {
             resourceGroupName: rgName,
@@ -176,7 +176,7 @@ export class BaseNet extends pulumi.ComponentResource {
             sourceAddressPrefix: "*",
             sourcePortRange: "*",
             priority: 1300,
-        });
+        }, {parent: this});
         const crmHttps =  new network.SecurityRule(`${name}-crm-https`, {
             resourceGroupName: rgName,
             networkSecurityGroupName: spaSecGrp.name,
@@ -189,7 +189,7 @@ export class BaseNet extends pulumi.ComponentResource {
             sourceAddressPrefix: args.beCidr,
             sourcePortRange: "*",
             priority: 300,
-        })
+        }, {parent: this})
 
         // This tells pulumi that resource creation is complete and so will register with the stack
         this.registerOutputs({});

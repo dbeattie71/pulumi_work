@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { Input, Output } from "@pulumi/pulumi"
 import * as web from "@pulumi/azure-nextgen/web/latest";
+import * as insights from "@pulumi/azure-nextgen/insights/latest";
 
 // These are the input properties supported by the custom resource.
 // Can be anything that makes sense. Supporting location and tags in this example.
@@ -32,6 +33,16 @@ export class BackEnd extends pulumi.ComponentResource {
         const resourceGroupName = args.resourceGroupName
         const location = args.location
 
+        const beAppInsights = new insights.Component(`${name}-app-insights`, {
+            applicationType: "web",
+            flowType: "Bluefield",
+            kind: "web",
+            location: location,
+            requestSource: "rest",
+            resourceGroupName: resourceGroupName,
+            resourceName: `${name}-app-insights`
+        }, {parent: this});
+
         const beAppServicePlan = new web.AppServicePlan(`${name}-api-svcplan`, {
             resourceGroupName: resourceGroupName,
             location: location,
@@ -53,24 +64,29 @@ export class BackEnd extends pulumi.ComponentResource {
             name: `${name}-api-webapp`,
             enabled: true,
             siteConfig: {
-
-            ipSecurityRestrictions: [
-                // Allow from frontend subnet
-                { 
-                    ipAddress: args.allowedAccess,
-                    action: "Allow",
-                    tag: "Default",
-                    priority: 100,
-                    name: "inboundFromFrontEnd"
-                },
-                {
-                    ipAddress: "Any",
-                    action: "Deny",
-                    priority: 2147483647,
-                    name: "Deny all",
-                    description: "Deny all access"
-                }
-            ],
+                appSettings: [
+                    {
+                        name: "APPINSIGHTS_INSTRUMENTATIONKEY",
+                        value: beAppInsights.instrumentationKey,
+                    }
+                ],
+                ipSecurityRestrictions: [
+                    // Allow from frontend subnet
+                    { 
+                        ipAddress: args.allowedAccess,
+                        action: "Allow",
+                        tag: "Default",
+                        priority: 100,
+                        name: "inboundFromFrontEnd"
+                    },
+                    {
+                        ipAddress: "Any",
+                        action: "Deny",
+                        priority: 2147483647,
+                        name: "Deny all",
+                        description: "Deny all access"
+                    }
+                ],
         }
             //     cors: {
             //         allowedOrigins: [
@@ -79,6 +95,8 @@ export class BackEnd extends pulumi.ComponentResource {
                             
             //         ]},
         }, {parent: this});
+
+
 
         // This tells pulumi that resource creation is complete and so will register with the stack
         this.registerOutputs({});
