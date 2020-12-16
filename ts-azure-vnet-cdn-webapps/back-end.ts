@@ -11,6 +11,7 @@ interface BackEndArgs {
     resourceGroupName: Input<string>;
     location: Input<string>;
     allowedAccess: Input<string>;
+    appInsightsKey: Input<string>;
 };
 
 export class BackEnd extends pulumi.ComponentResource {
@@ -32,16 +33,7 @@ export class BackEnd extends pulumi.ComponentResource {
 
         const resourceGroupName = args.resourceGroupName
         const location = args.location
-
-        const beAppInsights = new insights.Component(`${name}-app-insights`, {
-            applicationType: "web",
-            flowType: "Bluefield",
-            kind: "web",
-            location: location,
-            requestSource: "rest",
-            resourceGroupName: resourceGroupName,
-            resourceName: `${name}-app-insights`
-        }, {parent: this});
+        const appInsightsKey = args.appInsightsKey
 
         const beAppServicePlan = new web.AppServicePlan(`${name}-api-svcplan`, {
             resourceGroupName: resourceGroupName,
@@ -67,7 +59,7 @@ export class BackEnd extends pulumi.ComponentResource {
                 appSettings: [
                     {
                         name: "APPINSIGHTS_INSTRUMENTATIONKEY",
-                        value: beAppInsights.instrumentationKey,
+                        value: appInsightsKey
                     }
                 ],
                 ipSecurityRestrictions: [

@@ -2,6 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { Input, Output } from "@pulumi/pulumi"
 import * as storage from "@pulumi/azure/storage";
 import * as cdn from "@pulumi/azure-nextgen/cdn/latest";
+import { FeEndpoint } from "./fe-endpoint"
 
 // These are the input properties supported by the custom resource.
 // Can be anything that makes sense. Supporting location and tags in this example.
@@ -16,7 +17,8 @@ export class FrontEnd extends pulumi.ComponentResource {
     // The output properties for the custom resource.
     // Can be anything that makes sense. 
     // In this case, the endpoint URL is returned.
-    public readonly url: Output<string>;
+    public readonly spaUrl: Output<string>;
+    public readonly beapiUrl: Output<string>;
     //private readonly sa: storage.Account;
 
 
@@ -114,172 +116,29 @@ export class FrontEnd extends pulumi.ComponentResource {
         }, {parent: this});
 
         // Endpoint
-        const endpoint = new cdn.Endpoint(`${name}-spa-endpoint`, {
+        const spaEndpoint = new FeEndpoint(`${name}-spa`, {
             resourceGroupName: args.resourceGroupName,
             location: cdnProfile.location,
-            profileName: cdnProfile.name,
-            webApplicationFirewallPolicyLink: { id: cdnWafRules.id},
-            endpointName: `${name}-spa-endpoint`,
-            isHttpAllowed: false,
-            isHttpsAllowed: true,
-            originHostHeader: sa.primaryWebHost,
-            origins: [{
-                name: "blobstorage",
-                hostName: sa.primaryWebHost,
-            }],
-            contentTypesToCompress: ['text/html', 'application/octet-stream'],
-            deliveryPolicy: {
-                rules: [
-                    {
-                        actions: [
-                            {
-                                name: "ModifyResponseHeader",
-                                parameters: {
-                                    odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleHeaderActionParameters",
-                                    headerAction: "Append",
-                                    headerName: "X-Frame-Options",
-                                    value: "DENY",
-                                },
-                            },
-                            {
-                                name: "ModifyResponseHeader",
-                                parameters: {
-                                    odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleHeaderActionParameters",
-                                    headerAction: "Append",
-                                    headerName: "cache-control",
-                                    value: "no-store",
-                                },
-                            },
-                            {
-                                name: "ModifyResponseHeader",
-                                parameters: {
-                                    odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleHeaderActionParameters",
-                                    headerAction: "Append",
-                                    headerName: "Content-Security-Policy",
-                                    value: "frame-ancestors 'none'",
-                                },
-                            },
-                        ],
-                        conditions: [],
-                        name: "Global",
-                        order: 0,
-                    },
-                    {
-                        actions: [{
-                            name: "UrlRewrite",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleUrlRewriteActionParameters",
-                                destination: "/index.html",
-                                preserveUnmatchedPath: false,
-                                sourcePattern: "/",
-                            },
-                        }],
-                        conditions: [{
-                            name: "UrlFileExtension",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleUrlFileExtensionMatchConditionParameters",
-                                matchValues: ["0"],
-                                negateCondition: false,
-                                operator: "LessThanOrEqual",
-                                //transforms: [],
-                            },
-                        }],
-                        name: "ToIndex",
-                        order: 1,
-                    },
-                    {
-                        actions: [
-                            {
-                                name: "CacheExpiration",
-                                parameters: {
-                                    odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleCacheExpirationActionParameters",
-                                    cacheBehavior: "BypassCache",
-                                    cacheType: "All",
-                                },
-                            },
-                            {
-                                name: "ModifyResponseHeader",
-                                parameters: {
-                                    odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleHeaderActionParameters",
-                                    headerAction: "Overwrite",
-                                    headerName: "Strict-Transport-Security",
-                                    value: "max-age=31536000; includeSubDomains; preload",
-                                },
-                            },
-                            {
-                                name: "ModifyResponseHeader",
-                                parameters: {
-                                    odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleHeaderActionParameters",
-                                    headerAction: "Overwrite",
-                                    headerName: "X-XSS-Protection",
-                                    value: "�1; mode=block�",
-                                },
-                            },
-                        ],
-                        conditions: [{
-                            name: "UrlPath",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleUrlPathMatchConditionParameters",
-                                //matchValues: [],
-                                negateCondition: false,
-                                operator: "Any",
-                                //transforms: [],
-                            },
-                        }],
-                        name: "bypasscache",
-                        order: 2,
-                    },
-                    {
-                        actions: [{
-                            name: "UrlRedirect",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleUrlRedirectActionParameters",
-                                destinationProtocol: "Https",
-                                redirectType: "Found",
-                            },
-                        }],
-                        conditions: [{
-                            name: "RequestScheme",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleRequestSchemeConditionParameters",
-                                matchValues: ["HTTP"],
-                                negateCondition: false,
-                                operator: "Equal",
-                            },
-                        }],
-                        name: "EnforceHTTPS",
-                        order: 3,
-                    },
-                    {
-                        actions: [{
-                            name: "ModifyResponseHeader",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleHeaderActionParameters",
-                                headerAction: "Overwrite",
-                                headerName: "X-Content-Type-Options",
-                                value: "nosniff",
-                            },
-                        }],
-                        conditions: [{
-                            name: "RequestScheme",
-                            parameters: {
-                                odataType:  "#Microsoft.Azure.Cdn.Models.DeliveryRuleRequestSchemeConditionParameters",
-                                matchValues: ["HTTPS"],
-                                negateCondition: false,
-                                operator: "Equal",
-                            },
-                        }],
-                        name: "HeaderModifications",
-                        order: 4,
-                    },
-                ],
-            },
-        }, {parent: this });
+            cdnProfileName: cdnProfile.name,
+            wafRulesId: cdnWafRules.id,
+            originsHostHeader: sa.primaryWebHost,
+            origins: [{name: "blobstorage", hostName: sa.primaryWebHost}]
+        }, {parent: this})
+
+        const beapiEndpoint = new FeEndpoint(`${name}-beapi`, {
+            resourceGroupName: args.resourceGroupName,
+            location: cdnProfile.location,
+            cdnProfileName: cdnProfile.name,
+            wafRulesId: cdnWafRules.id,
+            originsHostHeader: sa.primaryWebHost,
+            origins: [{name: "blobstorage", hostName: sa.primaryWebHost}]
+        }, {parent: this})
 
         // This tells pulumi that resource creation is complete and so will register with the stack
         this.registerOutputs({});
 
-        this.url= pulumi.interpolate`https://${endpoint.hostName}/`;
+        this.spaUrl= pulumi.interpolate`https://${spaEndpoint.url}/`;
+        this.beapiUrl= pulumi.interpolate`https://${beapiEndpoint.url}/`;
 
     }
 }

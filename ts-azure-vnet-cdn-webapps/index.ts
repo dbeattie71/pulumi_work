@@ -3,6 +3,7 @@ import * as cache from "@pulumi/azure-nextgen/cache/latest";
 import { BaseNet } from "./base-net";
 import { FrontEnd } from "./front-end";
 import { BackEnd } from "./back-end";
+import { SharedElements } from "./shared-elements";
 
 
 //// Use config to store a base name for resources 
@@ -26,6 +27,11 @@ const baseNet = new BaseNet(nameBase, {
 });
 const resourceGroup = baseNet.resourceGroup
 
+const sharedElements = new SharedElements(nameBase, {
+    resourceGroupName: resourceGroup.name,
+    location: resourceGroup.location, 
+})
+
 // Create the frontend components:
 const frontEnd = new FrontEnd(nameBase, {
     resourceGroupName: resourceGroup.name,
@@ -37,6 +43,7 @@ const beapi = new BackEnd(`${nameBase}-be`, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location,
     allowedAccess: spaCidr, 
+    appInsightsKey: sharedElements.instrumentationKey
 })
 
 // Create the CRM API components 
@@ -44,24 +51,28 @@ const crm = new BackEnd(`${nameBase}-crm`, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location,
     allowedAccess: beCidr, 
+    appInsightsKey: sharedElements.instrumentationKey
 })
 
 // Create the Redis Cache
-const redis = new cache.Redis(`${nameBase}-redis`, {
-    name: `${nameBase}-redis`,
-    resourceGroupName: resourceGroup.name,
-    location: resourceGroup.location,
-    sku: {
-        capacity: 1,
-        family: "C",
-        name: "Basic",
-    },
-});
+///// COMMENTED OUT FOR TESTING SINCE IT TAKES A LONG TIME TO CREATE REDIS /////
+// const redis = new cache.Redis(`${nameBase}-redis`, {
+//     name: `${nameBase}-redis`,
+//     resourceGroupName: resourceGroup.name,
+//     location: resourceGroup.location,
+//     sku: {
+//         capacity: 1,
+//         family: "C",
+//         name: "Basic",
+//     },
+// });
 
 
-export const frontendUrl = frontEnd.url
-export const backendApiUrl = beapi.url
+export const feSpaEndpoint = frontEnd.spaUrl
+export const feBeapiEndpoint = frontEnd.beapiUrl
+export const beApiUrl = beapi.url
 export const crmApiUrl = crm.url
+
 
 // const stcards = new azure_nextgen.storage.latest.StorageAccount("stcards", {
 //     resourceGroupName: resourceGroup.name,

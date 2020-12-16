@@ -59,7 +59,7 @@ export class BaseNet extends pulumi.ComponentResource {
             location: location,
             virtualNetworkName:`${name}-vnet`,
             addressSpace: { addressPrefixes: [args.vnetCidr]},
-        }, {parent: this, ignoreChanges:["tags"] }); // This is because we hit this error: Custom diff for VirtualNetwork https://github.com/pulumi/pulumi-azure-nextgen-provider/issues/74
+        }, {parent: this, }); //ignoreChanges:["tags"] }); // This is because we hit this error: Custom diff for VirtualNetwork https://github.com/pulumi/pulumi-azure-nextgen-provider/issues/74
 
         // Create subnets 
         // frontend subnet and rules
@@ -71,13 +71,14 @@ export class BaseNet extends pulumi.ComponentResource {
             serviceEndpoints: [{
                 service: "Microsoft.Storage",
             }],
-        }, { parent: this.network, });
+        }, { parent: this.network });
 
         const spaSecGrp = new network.NetworkSecurityGroup(`${name}-spa-nsg`, {
             networkSecurityGroupName: `${name}-spa-nsg`,
             resourceGroupName: rgName,
             location: location
         }, {parent: this})
+
         const spaDenyAllDefault =  new network.SecurityRule(`${name}-spa-deny-all`, {
             resourceGroupName: rgName,
             networkSecurityGroupName: spaSecGrp.name,
@@ -115,7 +116,7 @@ export class BaseNet extends pulumi.ComponentResource {
                 service: "Microsoft.AzureCosmosDB",
             }],
             
-        }, { parent: this.network, })
+        }, { parent: this.network, dependsOn: this.spaSubnet })
 
         const beSecGrp = new network.NetworkSecurityGroup(`${name}-be-nsg`, {
             networkSecurityGroupName: `${name}-be-nsg`,
@@ -149,6 +150,19 @@ export class BaseNet extends pulumi.ComponentResource {
             sourcePortRange: "*",
             priority: 200,
         }, { parent: this, })
+        const crm2beHttps =  new network.SecurityRule(`${name}-be-crm2be`, {
+            resourceGroupName: rgName,
+            networkSecurityGroupName: spaSecGrp.name,
+            securityRuleName: `${name}-be-crm2be`,
+            access: "Allow",
+            direction: "InBound",
+            protocol: "TCP",
+            destinationAddressPrefix: args.beCidr,
+            destinationPortRange: "443",
+            sourceAddressPrefix: args.crmCidr,
+            sourcePortRange: "*",
+            priority: 250,
+        }, { parent: this, })
 
         // CRM API subnet and rules
         this.crmSubnet = new network.Subnet(`${name}-crm-subnet`, {
@@ -156,7 +170,7 @@ export class BaseNet extends pulumi.ComponentResource {
             virtualNetworkName: this.network.name,
             subnetName: `${name}-crm-subnet`,
             addressPrefix: args.crmCidr,
-        }, { parent: this.network, })
+        }, { parent: this.network, dependsOn: this.beSubnet })
 
         const crmSecGrp = new network.NetworkSecurityGroup(`${name}-crm-nsg`, {
             networkSecurityGroupName: `${name}-crm-nsg`,

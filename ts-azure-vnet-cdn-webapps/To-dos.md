@@ -8,7 +8,7 @@
 
 - DONE: WAF
   - Using example rules
-- DONE: CDN and Endpoint
+- DONE: CDN and Endpoints
 - DONE: SPA Storage
 
 # Backend Bits
@@ -40,4 +40,7 @@ I think I have this set up correctly.
 # Log Analytics Registrations
 
 - NOT DONE: CDNs ()
+
   - Can you show me what you are referring to in UI
+
+# General Items
