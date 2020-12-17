@@ -58,15 +58,19 @@ export class BackEnd extends pulumi.ComponentResource {
             enabled: true,
             // backup: {
             //     name: `${name}-api-bkup`,
+            //     enabled: true,
             //     schedule: {
             //         frequencyInterval: 1,
             //         frequencyUnit: "Day"
             //     },
-            //     storageAccountUrl: backupContainerId
+            //     //The error is about a SAS URL 
+            //     // A SAS is shared access signature URL ala https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview 
+            //     // It's not just the URL of the container.
+            //     // So need to figure out how to create one of those and use it here. 
+            //     storageAccountUrl: backupContainerId, 
             // },
             appSettings: {
-                    name: "APPINSIGHTS_INSTRUMENTATIONKEY",
-                    value: appInsightsKey
+                    "APPINSIGHTS_INSTRUMENTATIONKEY": appInsightsKey,
             },
             siteConfig: {
                 ipRestrictions: [
@@ -85,7 +89,7 @@ export class BackEnd extends pulumi.ComponentResource {
                     }
                 ],
             },
-        });
+        }, {parent: this});
         //// Nextgen example - but currently doesn't support setting scheduled backup
         // const beWebApp = new web.WebApp(`${name}-api-webapp`, {
         //     resourceGroupName: resourceGroupName,

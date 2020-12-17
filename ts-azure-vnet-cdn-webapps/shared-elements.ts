@@ -101,7 +101,7 @@ export class SharedElements extends pulumi.ComponentResource {
 
     const webBackupsContainer = new storage.BlobContainer(`${name}webbackupscontainer`, {
       resourceGroupName: resourceGroupName,
-      accountName: stcards.name,
+      accountName: webBackups.name,
       containerName: `${name}webbackupscontainer`
     }, {parent: this})
 
