@@ -42,7 +42,7 @@ export class FeEndpoint extends pulumi.ComponentResource {
         //const originsHostName = args.originsHostName
 
         // Endpoint
-        const endpoint = new cdn.Endpoint(`${name}-spa-endpoint`, {
+        const endpoint = new cdn.Endpoint(`${name}-endpoint`, {
             resourceGroupName: args.resourceGroupName,
             location: location,
             profileName: cdnProfileName,

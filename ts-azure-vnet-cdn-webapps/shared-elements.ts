@@ -110,6 +110,7 @@ export class SharedElements extends pulumi.ComponentResource {
       resourceGroupName: resourceGroupName,
       location: location,
       properties: {
+          enableSoftDelete: false,
           accessPolicies: [{
               objectId: vaultObjectId, // Info on how to find this value: https://docs.microsoft.com/en-us/azure/key-vault/general/assign-access-policy-cli#acquire-the-object-id
               permissions: {
