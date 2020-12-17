@@ -29,7 +29,7 @@ const baseNet = new BaseNet(nameBase, {
 });
 const resourceGroup = baseNet.resourceGroup
 
-const sharedElements = new SharedElements(nameBase, {
+export const sharedElements = new SharedElements(nameBase, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location, 
     tenantId: tenantId,
@@ -48,7 +48,7 @@ const beapi = new BackEnd(`${nameBase}-be`, {
     location: resourceGroup.location,
     allowedAccess: spaCidr,
     appInsightsKey: sharedElements.instrumentationKey,
-    backupContainerId: sharedElements.webBackupStorageAccountUrl
+    backupStorageSasUrl: sharedElements.webBackupStorageAccountSasUrl
 })
 
 // Create the CRM API components 
@@ -57,7 +57,7 @@ const crm = new BackEnd(`${nameBase}-crm`, {
     location: resourceGroup.location,
     allowedAccess: beCidr,
     appInsightsKey: sharedElements.instrumentationKey,
-    backupContainerId: sharedElements.webBackupStorageAccountUrl,
+    backupStorageSasUrl: sharedElements.webBackupStorageAccountSasUrl,
 })
 
 

@@ -12,7 +12,7 @@ interface BackEndArgs {
     location: Input<string>;
     allowedAccess: Input<string>;
     appInsightsKey: Input<string>;
-    backupContainerId: Input<string>;
+    backupStorageSasUrl: Input<string>;
 };
 
 export class BackEnd extends pulumi.ComponentResource {
@@ -35,7 +35,7 @@ export class BackEnd extends pulumi.ComponentResource {
         const resourceGroupName = args.resourceGroupName
         const location = args.location
         const appInsightsKey = args.appInsightsKey
-        const backupContainerId = args.backupContainerId
+        const backupStorageSasUrl = args.backupStorageSasUrl
 
         const beAppServicePlan = new web.AppServicePlan(`${name}-api-svcplan`, {
             resourceGroupName: resourceGroupName,
@@ -56,19 +56,15 @@ export class BackEnd extends pulumi.ComponentResource {
             resourceGroupName: resourceGroupName,
             appServicePlanId: beAppServicePlan.id,
             enabled: true,
-            // backup: {
-            //     name: `${name}-api-bkup`,
-            //     enabled: true,
-            //     schedule: {
-            //         frequencyInterval: 1,
-            //         frequencyUnit: "Day"
-            //     },
-            //     //The error is about a SAS URL 
-            //     // A SAS is shared access signature URL ala https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview 
-            //     // It's not just the URL of the container.
-            //     // So need to figure out how to create one of those and use it here. 
-            //     storageAccountUrl: backupContainerId, 
-            // },
+            backup: {
+                name: `${name}-api-bkup`,
+                enabled: true,
+                schedule: {
+                    frequencyInterval: 7,
+                    frequencyUnit: "Day"
+                },
+                storageAccountUrl: backupStorageSasUrl
+            },
             appSettings: {
                     "APPINSIGHTS_INSTRUMENTATIONKEY": appInsightsKey,
             },

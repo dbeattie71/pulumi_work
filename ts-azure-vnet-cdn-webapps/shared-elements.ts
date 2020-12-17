@@ -4,6 +4,7 @@ import * as insights from "@pulumi/azure-nextgen/insights/latest";
 import * as cache from "@pulumi/azure-nextgen/cache/latest";
 import * as storage from "@pulumi/azure-nextgen/storage/latest";
 import * as keyvault from "@pulumi/azure-nextgen/keyvault/latest";
+import * as storage_classic from "@pulumi/azure/storage"
 
 
 // These are the input properties supported by the custom resource.
@@ -22,7 +23,7 @@ export class SharedElements extends pulumi.ComponentResource {
   // Can be anything that makes sense. 
   // In this case, the endpoint URL is returned.
   public readonly instrumentationKey: Output<string>;
-  public readonly webBackupStorageAccountUrl: Output<string>;
+  public readonly webBackupStorageAccountSasUrl: Output<string>;
   //private readonly sa: storage.Account;
 
 
@@ -85,25 +86,58 @@ export class SharedElements extends pulumi.ComponentResource {
       containerName: `${name}stcardscont`
     }, {parent: this})
 
-    const webBackups = new storage.StorageAccount(`${name}webbackups`, {
+    // Using the classic provider for the webapp backup storage account so we can take advantage of the SAS function available with that provider.
+    const webBackups = new storage_classic.Account(`${name}bkup`, {
       resourceGroupName: resourceGroupName,
-      accountName: `${name}webbackups`,
       location: location,
-      sku: {
-          name: "Standard_LRS",
+      accountTier: "Standard",
+      accountReplicationType: "LRS",
+    });
+
+    const webBackupsSasInfo = webBackups.primaryConnectionString.apply(primaryConnectionString => storage_classic.getAccountSAS({
+      connectionString: primaryConnectionString,
+      httpsOnly: true,
+      signedVersion: "2019-12-12",
+      resourceTypes: {
+          service: true,
+          container: true,
+          object: true,
       },
-      kind: "StorageV2", 
-      /*tags: {
-        Environment: "Dev",
-        CostCenter: "VSE",
-      }*/
-    }, {parent:this});
+      services: {
+          blob: true,
+          queue: false,
+          table: false,
+          file: false,
+      },
+      start: "2020-12-01", // we could use Typescript functions to get current time and calculate future time.
+      expiry: "2030-01-01", // but for now we'll just hardcode a long time.
+      permissions: {
+          read: true,
+          write: true,
+          delete: true,
+          list: true,
+          add: true,
+          create: true,
+          update: true,
+          process: true,
+      },
+    }));
 
     const webBackupsContainer = new storage.BlobContainer(`${name}webbackupscontainer`, {
       resourceGroupName: resourceGroupName,
       accountName: webBackups.name,
       containerName: `${name}webbackupscontainer`
     }, {parent: this})
+
+    // Build the SAS URI to be passed back for the webapps backup configuration
+    const baseUrl = pulumi.interpolate`${webBackups.primaryBlobEndpoint}${webBackupsContainer.name}`
+    const sas = webBackupsSasInfo.sas
+    // The SAS we created is for the storage account. But, it's being used in conjunction with the container since 
+    // the webapp backup properties needs a URL that points at a container and not the whole account.
+    // Therefore, we actually need a service SAS and that means we need the "sr" parameter.
+    // See: https://docs.microsoft.com/en-us/rest/api/storageservices/create-service-sas#specifying-the-signed-resource-blob-service-only
+    const extraParameters = "&sr=c"
+    const sasUri = pulumi.interpolate`${baseUrl}${sas}${extraParameters}`
 
     const vault = new keyvault.Vault(`${name}-vault`, {
       vaultName: `${name}-vault`,
@@ -176,6 +210,6 @@ export class SharedElements extends pulumi.ComponentResource {
     this.registerOutputs({});
 
     this.instrumentationKey = beAppInsights.instrumentationKey 
-    this.webBackupStorageAccountUrl = pulumi.interpolate`${webBackups.primaryEndpoints.blob}${webBackupsContainer.name}`
+    this.webBackupStorageAccountSasUrl = sasUri
   }
 }
