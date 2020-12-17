@@ -22,6 +22,7 @@ export class SharedElements extends pulumi.ComponentResource {
   // Can be anything that makes sense. 
   // In this case, the endpoint URL is returned.
   public readonly instrumentationKey: Output<string>;
+  public readonly webBackupStorageAccountUrl: Output<string>;
   //private readonly sa: storage.Account;
 
 
@@ -82,6 +83,26 @@ export class SharedElements extends pulumi.ComponentResource {
       resourceGroupName: resourceGroupName,
       accountName: stcards.name,
       containerName: `${name}stcardscont`
+    }, {parent: this})
+
+    const webBackups = new storage.StorageAccount(`${name}webbackups`, {
+      resourceGroupName: resourceGroupName,
+      accountName: `${name}webbackups`,
+      location: location,
+      sku: {
+          name: "Standard_LRS",
+      },
+      kind: "StorageV2", 
+      /*tags: {
+        Environment: "Dev",
+        CostCenter: "VSE",
+      }*/
+    }, {parent:this});
+
+    const webBackupsContainer = new storage.BlobContainer(`${name}webbackupscontainer`, {
+      resourceGroupName: resourceGroupName,
+      accountName: stcards.name,
+      containerName: `${name}webbackupscontainer`
     }, {parent: this})
 
     const vault = new keyvault.Vault(`${name}-vault`, {
@@ -154,5 +175,6 @@ export class SharedElements extends pulumi.ComponentResource {
     this.registerOutputs({});
 
     this.instrumentationKey = beAppInsights.instrumentationKey 
+    this.webBackupStorageAccountUrl = pulumi.interpolate`${webBackups.primaryEndpoints.blob}${webBackupsContainer.name}`
   }
 }

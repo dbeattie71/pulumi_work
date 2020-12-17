@@ -46,16 +46,18 @@ const frontEnd = new FrontEnd(nameBase, {
 const beapi = new BackEnd(`${nameBase}-be`, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location,
-    allowedAccess: spaCidr, 
-    appInsightsKey: sharedElements.instrumentationKey
+    allowedAccess: spaCidr,
+    appInsightsKey: sharedElements.instrumentationKey,
+    backupContainerId: sharedElements.webBackupStorageAccountUrl
 })
 
 // Create the CRM API components 
 const crm = new BackEnd(`${nameBase}-crm`, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location,
-    allowedAccess: beCidr, 
-    appInsightsKey: sharedElements.instrumentationKey
+    allowedAccess: beCidr,
+    appInsightsKey: sharedElements.instrumentationKey,
+    backupContainerId: sharedElements.webBackupStorageAccountUrl,
 })
 
 

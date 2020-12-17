@@ -131,7 +131,7 @@ export class FrontEnd extends pulumi.ComponentResource {
             cdnProfileName: cdnProfile.name,
             wafRulesId: cdnWafRules.id,
             originsHostHeader: sa.primaryWebHost,
-            origins: [{name: "blobstorage", hostName: sa.primaryWebHost}]
+            origins: [{name: "blobstorage", hostName: sa.primaryWebHost}, {name: "fakeorigin", hostName: "www.example.com"}]
         }, {parent: this})
 
         // This tells pulumi that resource creation is complete and so will register with the stack

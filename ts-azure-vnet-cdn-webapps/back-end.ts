@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
-import { Input, Output } from "@pulumi/pulumi"
+import { Input, Output } from "@pulumi/pulumi";
 import * as web from "@pulumi/azure-nextgen/web/latest";
-import * as insights from "@pulumi/azure-nextgen/insights/latest";
+import * as appservice from "@pulumi/azure/appservice";
 
 // These are the input properties supported by the custom resource.
 // Can be anything that makes sense. Supporting location and tags in this example.
@@ -12,6 +12,7 @@ interface BackEndArgs {
     location: Input<string>;
     allowedAccess: Input<string>;
     appInsightsKey: Input<string>;
+    backupContainerId: Input<string>;
 };
 
 export class BackEnd extends pulumi.ComponentResource {
@@ -34,6 +35,7 @@ export class BackEnd extends pulumi.ComponentResource {
         const resourceGroupName = args.resourceGroupName
         const location = args.location
         const appInsightsKey = args.appInsightsKey
+        const backupContainerId = args.backupContainerId
 
         const beAppServicePlan = new web.AppServicePlan(`${name}-api-svcplan`, {
             resourceGroupName: resourceGroupName,
@@ -42,57 +44,94 @@ export class BackEnd extends pulumi.ComponentResource {
             kind: "app",
             sku: {
                 capacity: 1,
-                family: "D",
-                name: "D1",
-                size: "D1",
-                tier: "Shared"
+                family: "S",
+                name: "S1",
+                size: "S1",
+                tier: "Standard"
             }
         }, {parent: this})
 
-        const beWebApp = new web.WebApp(`${name}-api-webapp`, {
-            resourceGroupName: resourceGroupName,
+        const beWebApp = new appservice.AppService(`${name}-api-webapp`, {
             location: location,
-            serverFarmId: beAppServicePlan.id,
-            name: `${name}-api-webapp`,
+            resourceGroupName: resourceGroupName,
+            appServicePlanId: beAppServicePlan.id,
             enabled: true,
+            // backup: {
+            //     name: `${name}-api-bkup`,
+            //     schedule: {
+            //         frequencyInterval: 1,
+            //         frequencyUnit: "Day"
+            //     },
+            //     storageAccountUrl: backupContainerId
+            // },
+            appSettings: {
+                    name: "APPINSIGHTS_INSTRUMENTATIONKEY",
+                    value: appInsightsKey
+            },
             siteConfig: {
-                appSettings: [
-                    {
-                        name: "APPINSIGHTS_INSTRUMENTATIONKEY",
-                        value: appInsightsKey
-                    }
-                ],
-                ipSecurityRestrictions: [
+                ipRestrictions: [
                     // Allow from frontend subnet
                     { 
                         ipAddress: args.allowedAccess,
                         action: "Allow",
-                        tag: "Default",
                         priority: 100,
-                        name: "inboundFromFrontEnd"
+                        name: "inboundFromFrontEnd",
                     },
                     {
-                        ipAddress: "Any",
+                        ipAddress: "0.0.0.0/0",
                         action: "Deny",
                         priority: 2147483647,
                         name: "Deny all",
-                        description: "Deny all access"
                     }
                 ],
-        }
-            //     cors: {
-            //         allowedOrigins: [
-            //                  "https://pulumitask.example.com",
-            //                 "https://stspapulumi001.z33.web.core.windows.net/",
+            },
+        });
+        //// Nextgen example - but currently doesn't support setting scheduled backup
+        // const beWebApp = new web.WebApp(`${name}-api-webapp`, {
+        //     resourceGroupName: resourceGroupName,
+        //     location: location,
+        //     serverFarmId: beAppServicePlan.id,
+        //     name: `${name}-api-webapp`,
+        //     enabled: true,
+        //     siteConfig: {
+        //         appSettings: [
+        //             {
+        //                 name: "APPINSIGHTS_INSTRUMENTATIONKEY",
+        //                 value: appInsightsKey
+        //             }
+        //         ],
+        //         ipSecurityRestrictions: [
+        //             // Allow from frontend subnet
+        //             { 
+        //                 ipAddress: args.allowedAccess,
+        //                 action: "Allow",
+        //                 tag: "Default",
+        //                 priority: 100,
+        //                 name: "inboundFromFrontEnd"
+        //             },
+        //             {
+        //                 ipAddress: "Any",
+        //                 action: "Deny",
+        //                 priority: 2147483647,
+        //                 name: "Deny all",
+        //                 description: "Deny all access"
+        //             }
+        //         ],
+        // }
+        //     //     cors: {
+        //     //         allowedOrigins: [
+        //     //                  "https://pulumitask.example.com",
+        //     //                 "https://stspapulumi001.z33.web.core.windows.net/",
                             
-            //         ]},
-        }, {parent: this});
+        //     //         ]},
+        // }, {parent: this});
 
 
 
         // This tells pulumi that resource creation is complete and so will register with the stack
         this.registerOutputs({});
 
-        this.url = pulumi.interpolate`https://${beWebApp.defaultHostName}/`;
+        ///// if using nextgen provider: this.url = pulumi.interpolate`https://${beWebApp.defaultHostName}/`;
+        this.url = pulumi.interpolate`https://${beWebApp.defaultSiteHostname}/`;
     }
 }
