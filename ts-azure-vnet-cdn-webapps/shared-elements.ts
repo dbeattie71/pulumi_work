@@ -1,6 +1,10 @@
 import * as pulumi from "@pulumi/pulumi";
 import { Input, Output } from "@pulumi/pulumi"
 import * as insights from "@pulumi/azure-nextgen/insights/latest";
+import * as cache from "@pulumi/azure-nextgen/cache/latest";
+import * as storage from "@pulumi/azure-nextgen/storage/latest";
+import * as keyvault from "@pulumi/azure-nextgen/keyvault/latest";
+
 
 // These are the input properties supported by the custom resource.
 // Can be anything that makes sense. Supporting location and tags in this example.
@@ -9,6 +13,8 @@ import * as insights from "@pulumi/azure-nextgen/insights/latest";
 interface SharedElementsArgs {
     resourceGroupName: Input<string>;
     location: Input<string>;
+    tenantId: Input<string>;
+    vaultObjectId: Input<string>;
 };
 
 export class SharedElements extends pulumi.ComponentResource {
@@ -30,6 +36,8 @@ export class SharedElements extends pulumi.ComponentResource {
 
     const resourceGroupName = args.resourceGroupName
     const location = args.location
+    const tenantId = args.tenantId
+    const vaultObjectId = args.vaultObjectId
 
     const beAppInsights = new insights.Component(`${name}-app-insights`, {
         applicationType: "web",
@@ -39,6 +47,108 @@ export class SharedElements extends pulumi.ComponentResource {
         requestSource: "rest",
         resourceGroupName: resourceGroupName,
         resourceName: `${name}-app-insights`
+    }, {parent: this});
+
+
+    // create the shared redis cache
+    //// Azure takes FOREVER AND A DAY to create redis cache. So commenting out to speed up testing/demos for the time being.
+    // const redis = new cache.Redis(`${name}-redis`, {
+    //   name: `${name}-redis`,
+    //   resourceGroupName: resourceGroupName,
+    //   location: location,
+    //   sku: {
+    //       capacity: 1,
+    //       family: "C",
+    //       name: "Basic",
+    //   },
+    // }, {parent: this});
+    
+    // create the shared "stcards" storage account
+    const stcards = new storage.StorageAccount(`${name}stcards`, {
+      resourceGroupName: resourceGroupName,
+      accountName: `${name}stcards`,
+      location: location,
+      sku: {
+          name: "Standard_LRS",
+      },
+      kind: "StorageV2", 
+      /*tags: {
+        Environment: "Dev",
+        CostCenter: "VSE",
+      }*/
+    }, {parent:this});
+
+    const stcardsContainer = new storage.BlobContainer(`${name}stcardscont`, {
+      resourceGroupName: resourceGroupName,
+      accountName: stcards.name,
+      containerName: `${name}stcardscont`
+    }, {parent: this})
+
+    const vault = new keyvault.Vault(`${name}-vault`, {
+      vaultName: `${name}-vault`,
+      resourceGroupName: resourceGroupName,
+      location: location,
+      properties: {
+          accessPolicies: [{
+              objectId: vaultObjectId, // Info on how to find this value: https://docs.microsoft.com/en-us/azure/key-vault/general/assign-access-policy-cli#acquire-the-object-id
+              permissions: {
+                  certificates: [
+                      "get",
+                      "list",
+                      "delete",
+                      "create",
+                      "import",
+                      "update",
+                      "managecontacts",
+                      "getissuers",
+                      "listissuers",
+                      "setissuers",
+                      "deleteissuers",
+                      "manageissuers",
+                      "recover",
+                      "purge",
+                  ],
+                  keys: [
+                      "encrypt",
+                      "decrypt",
+                      "wrapKey",
+                      "unwrapKey",
+                      "sign",
+                      "verify",
+                      "get",
+                      "list",
+                      "create",
+                      "update",
+                      "import",
+                      "delete",
+                      "backup",
+                      "restore",
+                      "recover",
+                      "purge",
+                  ],
+                  secrets: [
+                      "get",
+                      "list",
+                      "set",
+                      "delete",
+                      "backup",
+                      "restore",
+                      "recover",
+                      "purge",
+                  ],
+              },
+              tenantId: tenantId,
+          }],
+          enabledForDeployment: true,
+          enabledForDiskEncryption: true,
+          enabledForTemplateDeployment: true,
+          sku: {
+              family: "A",
+              name: "standard",
+          },
+          tenantId: tenantId,
+      },
+ 
     }, {parent: this});
 
     this.registerOutputs({});

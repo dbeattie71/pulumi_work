@@ -26,8 +26,8 @@
 # Common Bits
 
 - DONE: Common Redis Cache
-- NOT DONE: "digrewards stcards" - is that just another storage account?
-- NOT DONE: Key Vault
+- DONE: "digrewards stcards"
+- DONE: Key Vault
 
 # AppInsights Registrations
 
@@ -42,5 +42,3 @@ I think I have this set up correctly.
 - NOT DONE: CDNs ()
 
   - Can you show me what you are referring to in UI
-
-# General Items

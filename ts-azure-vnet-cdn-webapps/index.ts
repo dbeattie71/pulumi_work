@@ -1,5 +1,4 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as cache from "@pulumi/azure-nextgen/cache/latest";
 import { BaseNet } from "./base-net";
 import { FrontEnd } from "./front-end";
 import { BackEnd } from "./back-end";
@@ -11,6 +10,9 @@ import { SharedElements } from "./shared-elements";
 //// This is also used for the custom resource.
 const config = new pulumi.Config();
 const nameBase = config.get("nameBase") || "mitchhrd"
+const tenantId = config.requireSecret("tenantId") 
+// Info on how to find vault object ID value: https://docs.microsoft.com/en-us/azure/key-vault/general/assign-access-policy-cli#acquire-the-object-id
+const vaultObjectId = config.requireSecret("vaultObjectId")
 
 const vnetCidr = "10.4.1.0/24"
 const spaCidr = "10.4.1.0/27"
@@ -30,6 +32,8 @@ const resourceGroup = baseNet.resourceGroup
 const sharedElements = new SharedElements(nameBase, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location, 
+    tenantId: tenantId,
+    vaultObjectId: vaultObjectId,
 })
 
 // Create the frontend components:
@@ -54,109 +58,10 @@ const crm = new BackEnd(`${nameBase}-crm`, {
     appInsightsKey: sharedElements.instrumentationKey
 })
 
-// Create the Redis Cache
-///// COMMENTED OUT FOR TESTING SINCE IT TAKES A LONG TIME TO CREATE REDIS /////
-// const redis = new cache.Redis(`${nameBase}-redis`, {
-//     name: `${nameBase}-redis`,
-//     resourceGroupName: resourceGroup.name,
-//     location: resourceGroup.location,
-//     sku: {
-//         capacity: 1,
-//         family: "C",
-//         name: "Basic",
-//     },
-// });
+
 
 
 export const feSpaEndpoint = frontEnd.spaUrl
 export const feBeapiEndpoint = frontEnd.beapiUrl
 export const beApiUrl = beapi.url
 export const crmApiUrl = crm.url
-
-
-// const stcards = new azure_nextgen.storage.latest.StorageAccount("stcards", {
-//     resourceGroupName: resourceGroup.name,
-//     accountName: `${nameBase}`+"stpuluminextgen01",
-//     location: resourceGroup.location,
-//     sku: {
-//         name: "Standard_LRS",
-//     },
-//     kind: "StorageV2", 
-//     /*tags: {
-//       Environment: "Dev",
-//       CostCenter: "VSE",
-//     }*/
-// });
-// const blobContainer = new azure_nextgen.storage.latest.BlobContainer("blobContainer", {
-//     resourceGroupName: resourceGroup.name,
-//     accountName: stcards.name,
-//     containerName: "$web",
-// });
-
-
-// const vault = new azure_nextgen.keyvault.latest.Vault("vault01", {
-//     location: resourceGroup.location,
-//     properties: {
-//         accessPolicies: [{
-//             objectId: "00000000-0000-0000-0000-000000000000",
-//             permissions: {
-//                 certificates: [
-//                     "get",
-//                     "list",
-//                     "delete",
-//                     "create",
-//                     "import",
-//                     "update",
-//                     "managecontacts",
-//                     "getissuers",
-//                     "listissuers",
-//                     "setissuers",
-//                     "deleteissuers",
-//                     "manageissuers",
-//                     "recover",
-//                     "purge",
-//                 ],
-//                 keys: [
-//                     "encrypt",
-//                     "decrypt",
-//                     "wrapKey",
-//                     "unwrapKey",
-//                     "sign",
-//                     "verify",
-//                     "get",
-//                     "list",
-//                     "create",
-//                     "update",
-//                     "import",
-//                     "delete",
-//                     "backup",
-//                     "restore",
-//                     "recover",
-//                     "purge",
-//                 ],
-//                 secrets: [
-//                     "get",
-//                     "list",
-//                     "set",
-//                     "delete",
-//                     "backup",
-//                     "restore",
-//                     "recover",
-//                     "purge",
-//                 ],
-//             },
-//             tenantId: "701766e0-5785-4e08-969d-87bbce0d356b",
-//         }],
-//         enabledForDeployment: true,
-//         enabledForDiskEncryption: true,
-//         enabledForTemplateDeployment: true,
-//         sku: {
-//             family: "A",
-//             name: "standard",
-//         },
-//         tenantId: "701766e0-5785-4e08-969d-87bbce0d356b",
-//     },
-//     resourceGroupName: resourceGroup.name,
-//     vaultName: `${nameBase}-`+"vault-task01", 
-// });
-
