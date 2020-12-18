@@ -92,7 +92,7 @@ export class SharedElements extends pulumi.ComponentResource {
       location: location,
       accountTier: "Standard",
       accountReplicationType: "LRS",
-    });
+    }, {parent: this});
 
     const webBackupsSasInfo = webBackups.primaryConnectionString.apply(primaryConnectionString => storage_classic.getAccountSAS({
       connectionString: primaryConnectionString,
@@ -109,8 +109,8 @@ export class SharedElements extends pulumi.ComponentResource {
           table: false,
           file: false,
       },
-      start: "2020-12-01", // we could use Typescript functions to get current time and calculate future time.
-      expiry: "2030-01-01", // but for now we'll just hardcode a long time.
+      start: "2020-12-01T00:00:00Z", // we could use Typescript functions to get current time and calculate future time.
+      expiry: "2030-01-01T00:00:00Z", // but for now we'll just hardcode a long time.
       permissions: {
           read: true,
           write: true,

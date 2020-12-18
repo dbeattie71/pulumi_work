@@ -14,6 +14,7 @@
 # Backend Bits
 
 - DONE: BE API Webapp
+  - DONE: Automatic backups
 - WTG TEMPLATE DUMP: BE CosmosDB ()
   - Can you provide a template dump from one you have set up?
 - WTG TEMPLATE DUMP: BE Function API ()

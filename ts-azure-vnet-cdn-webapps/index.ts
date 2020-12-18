@@ -29,7 +29,7 @@ const baseNet = new BaseNet(nameBase, {
 });
 const resourceGroup = baseNet.resourceGroup
 
-export const sharedElements = new SharedElements(nameBase, {
+const sharedElements = new SharedElements(nameBase, {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location, 
     tenantId: tenantId,
