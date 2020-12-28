@@ -1,7 +1,8 @@
 import * as pulumi from "@pulumi/pulumi";
 import { Input, Output } from "@pulumi/pulumi"
 import * as storage from "@pulumi/azure/storage";
-import * as cdn from "@pulumi/azure-nextgen/cdn/latest";
+//import * as cdn from "@pulumi/azure-nextgen/cdn/latest";
+import * as cdn from "@pulumi/azure-nextgen/cdn/v20200415"; 
 import { FeEndpoint } from "./fe-endpoint"
 
 // These are the input properties supported by the custom resource.
