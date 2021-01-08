@@ -4,6 +4,7 @@
 # Run it from the folder containing your pulumi code and environment.
 # It will crank up a docker container which is mounted to that folder and put you in the shell for the container.
 # From there you can run pulumi.
+# When done enter "exit"
 #
 # INPUTS
 # $1 (optional) -> the version of the Pulumi CLI you want to run. Default: latest version.
