@@ -13,3 +13,9 @@ const outputFileName = new OutputFile("outputs", {
   propName: "BUCKET_ID",
   prop: bucket.id,
 })
+
+// const bucket2 = new aws.s3.Bucket("my-bucket2", {
+//   tags: {
+//     project: "foo"
+//   }
+// });
