@@ -32,7 +32,7 @@ class WebService(ComponentResource):
                  args: WebServiceArgs,
                  opts: ResourceOptions = None):
 
-        super().__init__("custom:resource:FrontEnd", name, {}, opts)
+        super().__init__("custom:resource:Frontend", name, {}, opts)
 
         # Create an ECS cluster to run a container-based service.
         cluster = aws.ecs.Cluster(f'{name}-ecs',

@@ -2,7 +2,7 @@ from pulumi import ComponentResource, ResourceOptions
 from pulumi_aws import rds
 
 
-class RdsArgs:
+class DbArgs:
 
     def __init__(self,
                  db_name=None,
@@ -32,14 +32,14 @@ class RdsArgs:
         self.publicly_accessible = publicly_accessible
 
 
-class Rds(ComponentResource):
+class Db(ComponentResource):
 
     def __init__(self,
                  name: str,
-                 args: RdsArgs,
+                 args: DbArgs,
                  opts: ResourceOptions = None):
 
-        super().__init__("custom:resource:RDS", name, {}, opts)
+        super().__init__("custom:resource:Backend", name, {}, opts)
 
         # Create RDS subnet group to put RDS instance on.
         subnet_group_name = f'{name}-sng'
@@ -52,7 +52,7 @@ class Rds(ComponentResource):
                                            )
 
         rds_name = f'{name}-rds'
-        self.rds = rds.Instance(rds_name,
+        self.db = rds.Instance(rds_name,
                                 name=args.db_name,
                                 allocated_storage=args.allocated_storage,
                                 engine=args.engine,
