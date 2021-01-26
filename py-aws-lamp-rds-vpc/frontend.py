@@ -51,6 +51,13 @@ class WebService(ComponentResource):
                                  protocol='HTTP',
                                  target_type='ip',
                                  vpc_id=args.vpc_id,
+                                 health_check=aws.lb.TargetGroupHealthCheckArgs(
+                                     healthy_threshold=2,
+                                     interval=5,
+                                     timeout=4,
+                                     protocol="HTTP",
+                                     matcher="200-399"
+                                 ),
                                  opts=ResourceOptions(parent=self)
                                  )
 
@@ -135,7 +142,7 @@ class WebService(ComponentResource):
 
         self.service = aws.ecs.Service(f'{name}-app-svc',
                                        cluster=cluster.arn,
-                                       desired_count=3,
+                                       desired_count=1,
                                        launch_type='FARGATE',
                                        task_definition=self.task_definition.arn,
                                        network_configuration=aws.ecs.ServiceNetworkConfigurationArgs(

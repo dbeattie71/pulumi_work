@@ -6,6 +6,7 @@ Deploys:
 """
 
 import pulumi
+import pulumi_random as random
 import network
 import database
 import frontend
@@ -13,9 +14,16 @@ import frontend
 # Get config data
 config = pulumi.Config()
 project = config.get("project") or "wp-demo"
-db_name = config.require("db_name")
-db_user = config.require("db_user")
-db_password = config.require_secret("db_password")
+db_name = config.get("db_name") or "wpdb"
+db_user = config.get("db_user") or "admin"
+db_password = config.get_secret("db_password") or "__makeapassword__"
+if db_password == "__makeapassword__":
+    password = random.RandomPassword("password",
+        length=16,
+        special=True,
+        override_special="_%@",
+        opts=pulumi.ResourceOptions(additional_secret_outputs=['result']))
+    db_password = password.result
 
 name_base = "mitch"
 # Create an AWS VPC and subnets, etc
@@ -23,7 +31,6 @@ network = network.Vpc(name_base, network.VpcArgs())
 subnet_ids = []
 for subnet in network.subnets:
     subnet_ids.append(subnet.id)
-# pulumi.export('network', network)
 
 # Create RDS instance
 db = database.Rds(name_base, database.RdsArgs(
@@ -34,7 +41,6 @@ db = database.Rds(name_base, database.RdsArgs(
     subnet_ids=subnet_ids,
     security_group_ids=[network.rds_security_group.id]
 ))
-pulumi.export('rds ', db.rds.address)
 
 #fe = Output.all(db.rds.address, db.rds.name, db.rds.username, db.rds.passwordsql_server.name, database.name) \
 # .apply(lambda args: f"Server=tcp:{args[0]}.database.windows.net;initial catalog={args[1]}...")
@@ -48,4 +54,10 @@ fe = frontend.WebService(name_base, frontend.WebServiceArgs(
     subnet_ids=subnet_ids,
     security_group_ids=[network.fe_security_group.id]
 ))
-pulumi.export('fe', fe.alb.dns_name)
+
+web_url = pulumi.Output.concat("http://", fe.alb.dns_name)
+pulumi.export("Web Service URL", web_url)
+
+pulumi.export('DB Endpoint', db.rds.address)
+pulumi.export('DB User Name', db.rds.username)
+pulumi.export('DB Password', db.rds.password)
