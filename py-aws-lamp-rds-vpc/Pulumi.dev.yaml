@@ -1,2 +1,7 @@
 config:
   aws:region: us-east-1
+  lamp-rds:db_name: wpdb
+  lamp-rds:db_password:
+    secure: AAABALVvI5quceIcpfP5HwE1Ss8AmbYzczA2UXcDSHzRXxQjuRYMQes13VP0
+  lamp-rds:db_user: admin
+  lamp-rds:project: mitch-wp
