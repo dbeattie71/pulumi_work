@@ -95,8 +95,6 @@ class WebService(ComponentResource):
         # Spin up a load balanced service running our container image.
         task_name = f'{name}-app-task'
         container_name = f'{name}-app-container'
-        # fe = Output.all(db.rds.address, db.rds.name, db.rds.username, db.rds.passwordsql_server.name, database.name) \
-        # .apply(lambda args: f"Server=tcp:{args[0]}.database.windows.net;initial catalog={args[1]}...")
         self.task_definition = Output.all(args.db_host, args.db_port, args.db_name, args.db_user, args.db_password).apply(
             lambda args:
             aws.ecs.TaskDefinition(task_name,
@@ -118,7 +116,6 @@ class WebService(ComponentResource):
                                        'environment': [
                                            {
                                                'name': 'WORDPRESS_DB_HOST',
-                                               # 'value': Output.concat(args.db_host)
                                                'value': f'{args[0]}:{args[1]}'
                                            },
                                            {
@@ -158,5 +155,5 @@ class WebService(ComponentResource):
                                        opts=ResourceOptions(
                                            depends_on=[wl], parent=self),
                                        )
-
+ 
         self.register_outputs({})
