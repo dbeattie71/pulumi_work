@@ -20,10 +20,12 @@ const logTable = new aws.dynamodb.Table(`${nameBase}-webhook-table`, {
 });
 
 // Create an API endpoint
-// Only bothering with a POST since that's what's used by Pulumi Webhooks
+// Exposes a POST and a GET endpoint.
+// The POST endpoint can be used as Pulumi webhook URL.
 // You can also optionally pass query parameters - you can use any names or values.
 // This is supported in case someone wants to see it with query parameters.
 // This API simply stores the payload and any query parameters in the dynamodb table.
+// The GET endpoint can be used in a browser to get a dump of the data the webhook pushed out.
 const endpoint = new awsx.apigateway.API(`${nameBase}-webhook-endpoint`, {
     routes: [
     {
