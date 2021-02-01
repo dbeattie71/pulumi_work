@@ -26,9 +26,9 @@ It exposes a POST method and stores the payload in a DynamoDB table. It will als
     $ pulumi up
     ```
 
-1.  Use the endpoint URL (see stack outputs) in the Pulumi console to set up the webhook.
+1.  Use the provided Webhook URL (see stack outputs) in the Pulumi console to set up the webhook.
 1.  Update a stack or otherwise cause webhook delivery activity.
-1.  Go to the DynamoDB table (see stack outputs) and select the Items tab and you'll see entries for each action.
+1.  Go to the provided "Dump Log Data" URL (see stack outputs) to get a dump of the data. Or, go to the DynamoDB table (see stack outputs or resources) in AWS.
 
 ## Clean up
 
