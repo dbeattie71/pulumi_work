@@ -1,0 +1,4 @@
+config:
+  aws:region: us-east-1
+  pulumi-log-forwarder:pulumi_access_token:
+    secure: AAABACRStnZd20lkz1SfS1xs2LLhiSvJ6fNnEHH03TQUC5XjnqX2C2RnTC7qfMNS9OPkLu0V3r+WbNzDjfg1yGNxIfkwKH3Sx1pUlA==
