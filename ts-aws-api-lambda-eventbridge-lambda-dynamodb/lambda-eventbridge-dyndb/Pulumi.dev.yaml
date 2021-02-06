@@ -1,0 +1,4 @@
+config:
+  aws:region: us-east-1
+  lambda-eventbridge-dyndb:existingApiGwId: ls6q7v66ij
+  lambda-eventbridge-dyndb:existingApiGwName: mitch-existing-apigw
