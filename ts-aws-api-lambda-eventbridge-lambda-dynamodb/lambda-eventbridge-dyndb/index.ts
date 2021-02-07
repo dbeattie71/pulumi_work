@@ -40,7 +40,8 @@ const lambda2RoleAttachmentLambdaExecution = new aws.iam.RolePolicyAttachment(`$
 // });
 
 // Create the Lambda to execute
-const lambda2 = new aws.lambda.Function(`${nameBase}-lambda2Function`, {
+
+const lambda2 = new aws.lambda.Function(`${nameBase}-lambda2`, {
     code: new pulumi.asset.AssetArchive({
       ".": new pulumi.asset.FileArchive("./lambda2-app"),
     }),
@@ -49,10 +50,8 @@ const lambda2 = new aws.lambda.Function(`${nameBase}-lambda2Function`, {
     handler: "index.handler",
   });
 
-
-
 /////// BUILD THE EVENTBRIDGE BUS AND RELATED BITS /////
-const eventBus = new aws.cloudwatch.EventBus(`${nameBase}-eventBus`, {}, {dependsOn: lambda2});
+const eventBus = new aws.cloudwatch.EventBus(`${nameBase}-eventBus`);
 
 const eventRule = new aws.cloudwatch.EventRule(`${nameBase}-eventRule`, {
   eventBusName: eventBus.name,
