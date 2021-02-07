@@ -3,8 +3,8 @@ import { Input, Output } from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 
 const config = new pulumi.Config();
-const existingApiGwId = config.require("existingApiGwId")
 const existingApiGwName = config.require("existingApiGwName")
+const existingApiGwId = config.require("existingApiGwId")
 const stack = pulumi.getStack();
 const frontEndRoute = "/demo"
 
