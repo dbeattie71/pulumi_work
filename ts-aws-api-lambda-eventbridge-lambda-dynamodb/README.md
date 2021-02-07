@@ -1,5 +1,19 @@
 # AWS (API Gateway) -> Lambda -> Event Bridge -> Lambda -> DynamoDB
 
+- something about the event rule
+  - If you make the cycle below where things ar eworking and then totally remove event rule from code and add back in you are back to it not working.
+  - So adding the target manually sets something for the event rule that is not set when programmed
+- test to prove:
+  - stack up
+  - Test it doesn't write to dynamodb
+  - manually add another target - set retentio to 1 hour to distinguish
+  - Test - should see two writes to dynamodb
+  - Remove manual target
+  - Test - should still see writes
+  - Remove target from code and up and add it back in in code and up and test and see it works.
+
+#####
+
 The goal is to stand up an infrastructure that demonstrates the following use-case:
 
 - There is a pre-existing API Gateway.

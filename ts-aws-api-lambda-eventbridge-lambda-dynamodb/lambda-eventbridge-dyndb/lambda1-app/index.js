@@ -14,6 +14,7 @@ exports.handler = async (event, context) => {
   // And now create the event...
 
   // parameters set up
+  const timestamp = Date.now()
   const params = {
     Entries: [ 
     {
@@ -21,11 +22,12 @@ exports.handler = async (event, context) => {
       Source: eventSource,
       EventBusName: eventBusName,
       DetailType: 'transaction',
-      Time: new Date(),
+      Time: timestamp,
       // Main event body
       Detail: JSON.stringify({
-        action: 'something-happened',
-        result: 'it-was-good',
+        timestamp: timestamp,
+        action: 'something-new-happened',
+        result: 'it-was-also-good',
       })
     },
   ]}

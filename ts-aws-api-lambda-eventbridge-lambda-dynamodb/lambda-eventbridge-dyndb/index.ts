@@ -11,6 +11,18 @@ const existingApiGwName = config.require("existingApiGwName")
 
 const eventSource = `custom.mitchApp`
 
+////// BUILD DYNAMODB THAT BACKS LAMBDA2 ////
+// Create DynamoDB table for the events to be stored.
+const eventsTable = new aws.dynamodb.Table(`${nameBase}-events-table`, {
+  attributes: [{
+      name: "timestamp",
+      type: "N",
+  }],
+  hashKey: "timestamp",
+  readCapacity: 5,
+  writeCapacity: 5,
+});
+
 ////// BUILD THE LAMBDA THAT WILL SERVICE THE EVENT BUS //////
 // Build Lambda #2 which receives requests from the Event Bus
 const lambda2Role = new aws.iam.Role(`${nameBase}-lambda2role`, {
@@ -20,7 +32,9 @@ const lambda2Role = new aws.iam.Role(`${nameBase}-lambda2role`, {
       {
         Action: "sts:AssumeRole",
         Principal: {
-          Service: "lambda.amazonaws.com",
+          Service: [
+            "lambda.amazonaws.com"
+          ]
         },
         Effect: "Allow",
         Sid: "",
@@ -34,26 +48,35 @@ const lambda2RoleAttachmentLambdaExecution = new aws.iam.RolePolicyAttachment(`$
   role: lambda2Role,
   policyArn: aws.iam.ManagedPolicy.AWSLambdaBasicExecutionRole,
 });
-// const lambda2RoleAttachmentEventBus = new aws.iam.RolePolicyAttachment(`${nameBase}-lambda2RoleEventBus`, {
-//   role: lambda2Role,
-//   policyArn: "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess"
-// });
+const lambda2RoleAttachmentDynamoDB = new aws.iam.RolePolicyAttachment(`${nameBase}-lambda2RoleDynamoDB`, {
+  role: lambda2Role,
+  policyArn: aws.iam.ManagedPolicy.AmazonDynamoDBFullAccess
+});
 
 // Create the Lambda to execute
-
-const lambda2 = new aws.lambda.Function(`${nameBase}-lambda2`, {
+const lambda2= eventsTable.name.apply(name =>  {
+  return new aws.lambda.Function(`${nameBase}-lambda2`, {
     code: new pulumi.asset.AssetArchive({
+      "infra_info.js": new pulumi.asset.StringAsset(`module.exports.infraInfo=
+      {
+        tableName: "${name}",
+    }
+  `),
       ".": new pulumi.asset.FileArchive("./lambda2-app"),
     }),
     runtime: "nodejs12.x",
     role: lambda2Role.arn,
     handler: "index.handler",
   });
+})
 
 /////// BUILD THE EVENTBRIDGE BUS AND RELATED BITS /////
-const eventBus = new aws.cloudwatch.EventBus(`${nameBase}-eventBus`);
+const busName = `${nameBase}-eventBus`
+const eventBus = new aws.cloudwatch.EventBus(busName, {name: busName});
 
-const eventRule = new aws.cloudwatch.EventRule(`${nameBase}-eventRule`, {
+const ruleName = `${nameBase}-eventRule`
+const eventRule = new aws.cloudwatch.EventRule(ruleName, {
+  name: ruleName,
   eventBusName: eventBus.name,
   description: "Process events",
   eventPattern: `{
@@ -63,17 +86,20 @@ const eventRule = new aws.cloudwatch.EventRule(`${nameBase}-eventRule`, {
 }
 `,
 });
-// const eventTarget = new aws.cloudwatch.EventTarget(`${nameBase}-eventTarget`, {
-//     rule: eventRule.name,
-//     arn: lambda2.arn
-//     //eventBusName: eventBus.name
+
+// const mitch_new_lambda2_d4a7b24 = new aws.cloudwatch.EventTarget("mitch-new-lambda2-d4a7b24", {
+//   arn: lambda2.arn, //"arn:aws:lambda:us-east-1:052848974346:function:mitch-new-lambda2-d4a7b24",
+//   eventBusName: busName,
+//   rule: ruleName,
+//   targetId: "Id83058778-8d71-41cf-a62d-935cd01d5546",
 // });
 
-// const eventPermission = new aws.cloudwatch.EventPermission(`${nameBase}-eventPermission`, {
-//   principal: "123456789012",
-//   statementId: "DevAccountAccess",
-// });
-
+const eventTarget = new aws.cloudwatch.EventTarget(`${nameBase}-eventTarget`, {
+    rule: eventRule.name,
+    arn: lambda2.arn,
+    eventBusName: eventBus.name,
+    targetId: `${nameBase}-eventTarget`
+});
 
 /////// API GATEWAY -> LAMBDA PLUMBING
 // Find existing API gateway
