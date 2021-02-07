@@ -4,8 +4,9 @@ import { Backend } from "./backend";
 import { Bus } from "./bus"
 import { Frontend } from "./frontend"
 
+const stack = pulumi.getStack();
 const config = new pulumi.Config();
-const nameBase = config.get("nameBase") || "mitch-new"
+const nameBase = config.get("nameBase") || stack
 const appName = config.get("appName") || "custom.EventProcessor"
 
 const backend = new Backend(nameBase)

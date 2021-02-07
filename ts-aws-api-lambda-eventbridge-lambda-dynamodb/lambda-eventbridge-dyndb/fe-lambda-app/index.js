@@ -13,9 +13,14 @@ const eventbridge = new AWS.EventBridge()
 // creates an event for EventBridge that contains a timestamp and any query parameters.
 exports.handler = async (event, context) => {
   const timestamp = Date.now()
+  const eventDetailsBase = {timestamp: timestamp}
 
-  const eventDetailsStatic = {timestamp: timestamp}
-  const eventDetails = {...eventDetailsStatic, ...event.queryStringParameters}
+  let queryParams = event.queryStringParameters
+  if (!queryParams) {
+    queryParams = {"message":"hello world"}
+  }
+
+  const eventDetails = {...eventDetailsBase, ...queryParams}
 
   // parameters for EventBus sdk call 
   const params = {

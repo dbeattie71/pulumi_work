@@ -6,7 +6,6 @@ const config = new pulumi.Config();
 const existingApiGwName = config.require("existingApiGwName")
 const existingApiGwId = config.require("existingApiGwId")
 const stack = pulumi.getStack();
-const frontEndRoute = "/demo"
 
 interface FrontendArgs {
   busArn: Input<string>;
@@ -22,6 +21,7 @@ export class Frontend extends pulumi.ComponentResource {
     const nameBase = `${name}-fe`
     const busArn = args.busArn
     const eventSource = args.appName
+    const frontEndRoute = `/${eventSource}`
 
     // Find existing API gateway
     const apiGw = aws.apigatewayv2.Api.get(existingApiGwName, existingApiGwId)
@@ -105,7 +105,7 @@ export class Frontend extends pulumi.ComponentResource {
       autoDeploy: true,
     }, {parent:this});
 
-    this.url = pulumi.interpolate`${stage.invokeUrl}/demo`
+    this.url = pulumi.interpolate`${stage.invokeUrl}/${eventSource}`
     this.registerOutputs()
   }
 }
