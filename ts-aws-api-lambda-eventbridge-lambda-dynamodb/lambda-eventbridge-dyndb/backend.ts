@@ -71,6 +71,14 @@ export class Backend extends pulumi.ComponentResource {
         handler: "index.handler",
       }, {parent: this});
     })
+
+    // Permissions to allow the eventbus to call the backend lambda
+    const lambdaPermission = new aws.lambda.Permission(`${nameBase}-lambdaPermission`, {
+      action: "lambda:InvokeFunction",
+      principal: "events.amazonaws.com",
+      function: lambda,
+    }, {parent:this})
+
     this.reader = lambda.arn
     this.eventsTableName = eventsTable.name
     this.registerOutputs()
