@@ -7,7 +7,7 @@ exports.handler = async (event, context) => {
   // TBD 
 
   // Get the info about the infrastructure that was just created/updated by Pulumi
-  const { infraInfo } = require('./infra_info.js')
+  const { infraInfo } = require('./infra_info')
   const eventBusName = infraInfo.eventBusName
   const eventSource = infraInfo.eventSource
 

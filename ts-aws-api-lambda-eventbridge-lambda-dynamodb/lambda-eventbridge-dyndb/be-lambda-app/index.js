@@ -5,7 +5,7 @@ const dynamoDB = new AWS.DynamoDB.DocumentClient()
 exports.handler = async (event) => {
   console.log('--- processed and event ---')
   console.log(JSON.stringify(event, null, 2))
-  const { infraInfo } = require('./infra_info.js')
+  const { infraInfo } = require('./infra_info')
   console.log("**** infra info ****", infraInfo)
       // Push the event into the table and assume success.
       const putObject = {
