@@ -1,4 +1,5 @@
 config:
   aws:region: us-east-1
+  lambda-eventbridge-dyndb:appName: pnmac.EventProcessor
   lambda-eventbridge-dyndb:existingApiGwId: hufplu7lj2
   lambda-eventbridge-dyndb:existingApiGwName: mitch-existing-apigw
