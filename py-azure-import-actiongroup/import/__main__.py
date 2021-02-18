@@ -2,13 +2,16 @@
 
 import pulumi
 import pulumi_azure as azure
+import os
+
+subscription = os.environ['SUBSCRIPTION_ID']
 
 rgname='mitch-rg'
 agname='mitch-ag'
 name = "mitchimp"
 import_resource_group = azure.core.ResourceGroup(name+"ResourceGroup", location="East US",
   name=rgname,
-  opts=pulumi.ResourceOptions(import_='/subscriptions/32b9cb2e-69be-4040-80a6-02cd6b2cc5ec/resourceGroups/'+rgname)
+  opts=pulumi.ResourceOptions(import_='/subscriptions/'+subscription+'/resourceGroups/'+rgname)
 )
 
 
@@ -22,7 +25,8 @@ import_action_group = azure.monitoring.ActionGroup(name+"ActionGroup",
         "service_uri": "http://example.com/alert",
         "use_common_alert_schema": False,
     }],
-    opts=pulumi.ResourceOptions(import_='/subscriptions/32b9cb2e-69be-4040-80a6-02cd6b2cc5ec/resourceGroups/'+rgname+'/providers/microsoft.insights/actionGroups/'+agname)
+    opts=pulumi.ResourceOptions(import_='/subscriptions/'+subscription+'/resourceGroups/'+rgname+'/providers/microsoft.insights/actionGroups/'+agname)
+    ### fails due to incorrect upper/lower case: opts=pulumi.ResourceOptions(import_='/subscriptions/'+subscription+'/resourcegroups/'+rgname+'/providers/Microsoft.Insights/actiongroups/'+agname)
 )
 
 ## Current SDK 
@@ -36,6 +40,6 @@ import_action_group = azure.monitoring.ActionGroup(name+"ActionGroup",
 #         use_common_alert_schema=False,
 #     )],
 
-#     opts=pulumi.ResourceOptions(import_='/subscriptions/32b9cb2e-69be-4040-80a6-02cd6b2cc5ec/resourceGroups/'+rgname+'/providers/microsoft.insights/actionGroups/'+agname)
+#     opts=pulumi.ResourceOptions(import_='/subscriptions/'+subscription+'/resourceGroups/'+rgname+'/providers/microsoft.insights/actionGroups/'+agname)
 # )
 
