@@ -15,7 +15,15 @@ from pulumi_kubernetes.core.v1 import (
     ServiceSpecArgs,
 )
 from pulumi_kubernetes.meta.v1 import LabelSelectorArgs, ObjectMetaArgs
-from pulumi_kubernetes.extensions.v1beta1 import Ingress
+from pulumi_kubernetes.extensions.v1beta1 import (
+    Ingress,
+    IngressSpecArgs,
+    IngressRuleArgs,
+    HTTPIngressRuleValueArgs,
+    HTTPIngressPathArgs,
+    IngressBackendArgs,
+)
+
 
 import network
 
@@ -69,20 +77,33 @@ app_deployment = Deployment(
 )
 
 # Create our app service
-app_service = Service(
-    f"{proj_name}-app-service",
+app_service_name = f"{proj_name}-app-service"
+app_service = Service(app_service_name,
+    metadata=ObjectMetaArgs(namespace=namespace, name=app_service_name),
     spec=ServiceSpecArgs(type="NodePort", selector=labels, ports=[ServicePortArgs(port=80)]),
     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
 )
 
 # Create the ingress.
 # EKS with fargate will create an ALB
+# https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
+app_ingress_name = f"{proj_name}-ingress"
 app_ingress = Ingress(
-    f"{proj_name}-ingress",
-    metadata=ObjectMetaArgs(namespace=namespace),
-    spec=IngressSpecArgs(rules=[RulesArgs()])
-
-
+    app_ingress_name,
+    metadata=ObjectMetaArgs(namespace=namespace, name=app_ingress_name, annotations={
+        "kubernetes.io/ingress.class": "alb",
+        "alb.ingress.kubernetes.io/scheme": "internet-facing",
+        "alb.ingress.kubernetes.io/target-type": "ip"}),
+    spec=IngressSpecArgs(
+        rules=[IngressRuleArgs(
+            http=HTTPIngressRuleValueArgs(
+                paths=[HTTPIngressPathArgs(
+                    path="/*", backend=IngressBackendArgs(service_name=app_service_name, service_port=80)
+                )]
+            )
+        )]
+    ),
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
 )
 
 
@@ -173,6 +194,6 @@ app_ingress = Ingress(
 #     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
 # )
 
-ingress = frontend_service.status.apply(lambda status: status.load_balancer.ingress[0])
-frontend_ip = ingress.apply(lambda ingress: ingress.ip or ingress.hostname or "")
-pulumi.export("frontend_ip", frontend_ip)
+# ingress = frontend_service.status.apply(lambda status: status.load_balancer.ingress[0])
+# frontend_ip = ingress.apply(lambda ingress: ingress.ip or ingress.hostname or "")
+# pulumi.export("frontend_ip", frontend_ip)

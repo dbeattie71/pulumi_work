@@ -23,8 +23,8 @@ export default class Vpc extends ComponentResource {
       {
         numberOfAvailabilityZones: 2,
         subnets: [
-          { type: 'public', cidrMask: 20 },
-          { type: 'private', cidrMask: 20 },
+          { type: 'public', cidrMask: 20, tags: { "kubernetes.io/role/elb":"1" }},
+          { type: 'private', cidrMask: 20, tags: { "kubernetes.io/role/internal-elb":"1" }},
         ],
         tags: { "Name": `${componentName}-vpc`},
       },
