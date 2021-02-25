@@ -1,36 +1,14 @@
 import pulumi
 import pulumi_eks as eks
-import pulumi_kubernetes as kubernetes
-import app
+import app  
 
-from pulumi import (
-    ResourceOptions,
-    Output
-)
-
-from pulumi_eks import (
-    Cluster,
-)
-from pulumi_eks.cluster import (
-    FargateProfileArgs,
-)
-from pulumi_aws.eks import (
-    FargateProfileSelectorArgs
-)
-
+from pulumi import ResourceOptions, Output
+from pulumi_eks import Cluster
+from pulumi_eks.cluster import FargateProfileArgs
+from pulumi_aws.eks import FargateProfileSelectorArgs
 from pulumi_kubernetes import Provider
-from pulumi_kubernetes.apps.v1 import Deployment, DeploymentSpecArgs
-from pulumi_kubernetes.core.v1 import (
-    ContainerArgs,
-    Namespace,
-    PodSpecArgs,
-    PodTemplateSpecArgs,
-    Service,
-    ServiceAccount,
-    ServicePortArgs,
-    ServiceSpecArgs,
-)
-from pulumi_kubernetes.meta.v1 import LabelSelectorArgs, ObjectMetaArgs
+from pulumi_kubernetes.core.v1 import Namespace
+from pulumi_kubernetes.meta.v1 import ObjectMetaArgs
 
 # Get config values to use for the stack
 config = pulumi.Config()
@@ -46,8 +24,8 @@ vpc_stack_ref = pulumi.StackReference(vpc_stack)
 vpc_id = vpc_stack_ref.get_output("vpcId")
 priv_subnet_ids = vpc_stack_ref.get_output("privateSubnetIds")
 
-### EKS CLUSTER ON FARGATE SET UP####
-# Using a app-specific namespace instead of default.
+### EKS CLUSTER ON FARGATE ###
+# Using an app-specific namespace instead of default.
 app_namespace_name = f"{proj_name}-app"
 pulumi.export("App Namespace", app_namespace_name)
 sys_namespace_name = "kube-system" # the system namespace where things like coredns run
@@ -58,7 +36,6 @@ cluster = Cluster(
     fargate=FargateProfileArgs(selectors=[
         FargateProfileSelectorArgs(namespace=app_namespace_name),
         FargateProfileSelectorArgs(namespace=sys_namespace_name),
-        FargateProfileSelectorArgs(namespace="default"),
     ]),
     vpc_id=vpc_id,
     private_subnet_ids = priv_subnet_ids,
@@ -73,13 +50,14 @@ k8s_provider = Provider(
     "k8s", kubeconfig=kubeconfig,
 )
 
-# Create the app namespace 
+# Create the app namespace on the EKS cluster
 app_namespace = Namespace(app_namespace_name,
     metadata=ObjectMetaArgs(name=app_namespace_name),
     opts=ResourceOptions(provider=k8s_provider),
 )
 
-#### App ####
+### App ###
+# Use custom resource to create the App
 app_name = f"{proj_name}-app"
 app_labels = {"app": "nginx"}
 app = app.App(app_name, app.AppArgs(

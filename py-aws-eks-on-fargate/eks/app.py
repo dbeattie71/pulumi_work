@@ -57,13 +57,13 @@ class App(ComponentResource):
             ),
             spec=DeploymentSpecArgs(
                 selector=LabelSelectorArgs(match_labels=app_labels),
-                replicas=1,
+                replicas=args.replicas,
                 template=PodTemplateSpecArgs(
                     metadata=ObjectMetaArgs(labels=app_labels),
                     spec=PodSpecArgs(containers=[ContainerArgs(name=args.app_name, image=args.image_name)]),
                 ),
             ),
-            opts=ResourceOptions(provider=k8s_provider),
+            opts=ResourceOptions(provider=k8s_provider, parent=self),
         )
 
         # Create our app service
@@ -71,7 +71,7 @@ class App(ComponentResource):
         self.app_service = Service(app_service_name,
             metadata=ObjectMetaArgs(namespace=app_namespace),
             spec=ServiceSpecArgs(type="NodePort", selector=app_labels, ports=service_ports),
-            opts=ResourceOptions(provider=k8s_provider),
+            opts=ResourceOptions(provider=k8s_provider, parent=self),
         )
 
         self.register_outputs({})
