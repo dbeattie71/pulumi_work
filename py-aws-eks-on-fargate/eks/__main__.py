@@ -69,7 +69,7 @@ k8s_provider = Provider(
     "k8s", kubeconfig=cluster.kubeconfig,
 )
 
-app_namespace = "default" # using default for now
+namespace = "default" # using default for now
 sys_namespace = "kube-system"
 
 #### App ####
@@ -249,7 +249,7 @@ eks_alb_ingress_controller = aws.iam.Role(alb_role_name,
 
 alb_role_attachment_name = f"{proj_name}-alb-role-attach"
 alb_ingress_controller_iam_policy_role_policy_attachment = aws.iam.RolePolicyAttachment(alb_role_attachment_name,
-    policy_arn=alb_ingress_controller_iam_policy_policy.arn,
+    policy_arn=alb_ingress_controller_iam_policy.arn,
     role=eks_alb_ingress_controller.name)
 
 
@@ -319,11 +319,12 @@ kube_system_alb_ingress_controller_service_account = kubernetes.core.v1.ServiceA
         },
         "name": kube_system_ingress_service_account_name,
         "namespace": "kube-system",
-        "annotations": [{"eks.amazonaws.com/role-arn", f"{eks_alb_ingress_controller.arn}"}]
-    }
+        ####"annotations": [{"eks.amazonaws.com/role-arn", f"{eks_alb_ingress_controller.arn}"}]
+        "annotations": {
+            "eks.amazonaws.com/role-arn": "arn:aws:iam::052848974346:role/synapse-eks-demo-alb-role"
+        },
     },
     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
-
 pulumi.export("kube_system_alb_ingress_controller_service_account", kube_system_alb_ingress_controller_service_account.metadata)
 
 
@@ -344,26 +345,10 @@ alb_ingress_controller_cluster_role_binding = kubernetes.rbac.v1.ClusterRoleBind
     },
     subjects=[{
         "kind": "ServiceAccount",
-        "name": kube_system_ingress_service_account_name
+        "name": kube_system_ingress_service_account_name,
         "namespace": "kube-system",
     }],
     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
-
-
-
-
-# # Create a Service Account with the ELB role IAM role annotated to use with the Pod.
-# sa_name = f"{proj_name}-sa"
-# alb_role_arn = "arn:aws:iam::052848974346:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing"
-# sa = ServiceAccount(sa_name,
-#     metadata=ObjectMetaArgs(
-#       namespace=namespace,
-#       name=sa_name,
-#       annotations={
-#         'eks.amazonaws.com/role-arn': alb_role_arn
-#       }),
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
-# )
 
 # Create the deployment for the alb ingress controller
 alb_deployment_name = f"{proj_name}-alb-deployment"
@@ -386,27 +371,49 @@ alb_deployment = Deployment(
     ),
     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
 )
+
 # Create the ingress.
 # EKS with fargate will create an ALB
 # https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
-# app_ingress_name = f"{proj_name}-ingress"
-# app_ingress = Ingress(
-#     app_ingress_name,
-#     metadata=ObjectMetaArgs(namespace=namespace, name=app_ingress_name, annotations={
-#         "kubernetes.io/ingress.class": "alb",
-#         "alb.ingress.kubernetes.io/scheme": "internet-facing",
-#         "alb.ingress.kubernetes.io/target-type": "ip"}),
-#     spec=IngressSpecArgs(
-#         rules=[IngressRuleArgs(
-#             http=HTTPIngressRuleValueArgs(
-#                 paths=[HTTPIngressPathArgs(
-#                     path="/*", backend=IngressBackendArgs(service_name=app_service_name, service_port=80)
-#                 )]
-#             )
-#         )]
-#     ),
+app_ingress_name = f"{proj_name}-ingress"
+app_ingress = Ingress(
+    app_ingress_name,
+    metadata=ObjectMetaArgs(namespace=namespace, name=app_ingress_name, annotations={
+        "kubernetes.io/ingress.class": "alb",
+        "alb.ingress.kubernetes.io/scheme": "internet-facing",
+        "alb.ingress.kubernetes.io/target-type": "ip"}),
+    spec=IngressSpecArgs(
+        rules=[IngressRuleArgs(
+            http=HTTPIngressRuleValueArgs(
+                paths=[HTTPIngressPathArgs(
+                    path="/*", backend=IngressBackendArgs(service_name=app_service_name, service_port=80)
+                )]
+            )
+        )]
+    ),
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
+)
+
+
+
+
+
+######################################
+######################################
+# # Create a Service Account with the ELB role IAM role annotated to use with the Pod.
+# sa_name = f"{proj_name}-sa"
+# alb_role_arn = "arn:aws:iam::052848974346:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing"
+# sa = ServiceAccount(sa_name,
+#     metadata=ObjectMetaArgs(
+#       namespace=namespace,
+#       name=sa_name,
+#       annotations={
+#         'eks.amazonaws.com/role-arn': alb_role_arn
+#       }),
 #     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
 # )
+#
+
 
 # # Get the OIDC provider's URL for the cluster.
 # cluster_oidc_provider = cluster.core.oidc_provider
