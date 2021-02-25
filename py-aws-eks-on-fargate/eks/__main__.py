@@ -4,7 +4,7 @@ from pulumi import (
     Output
 )
 
-# import pulumi_aws as aws
+import pulumi_aws as aws
 # from pulumi_aws.iam import (
 #     GetPolicyDocumentStatementArgs,
 #     GetPolicyDocumentStatementConditionArgs,
@@ -64,20 +64,44 @@ cluster = Cluster(
 # Export the cluster's kubeconfig.
 pulumi.export("kubeconfig", cluster.kubeconfig)
 
-# ns = Namespace(f"{proj_name}-ns", 
-#   opts=ResourceOptions(provider=cluster.provider)
-# ).metadata.name
-# # Export the Namespace name
-# pulumi.export("name_space", ns)
-
 # Createa k8s provider based on kubeconfig from EKS cluster
 k8s_provider = Provider(
     "k8s", kubeconfig=cluster.kubeconfig,
 )
 
-alb_iam_policy = f"{proj_name}-alb-iam"
-alb_ingress_controller_iam_policy_policy = aws.iam.Policy(alb_iam_policy,
-    name=alb_iam_policy,
+app_namespace = "default" # using default for now
+sys_namespace = "kube-system"
+
+#### App ####
+# Create the deployment for our app
+labels = {"app": "nginx"}
+app_deployment = Deployment(
+    f"{proj_name}-app-deployment",
+    spec=DeploymentSpecArgs(
+        selector=LabelSelectorArgs(match_labels=labels),
+        replicas=1,
+        template=PodTemplateSpecArgs(
+            metadata=ObjectMetaArgs(namespace=namespace, labels=labels),
+            spec=PodSpecArgs(containers=[ContainerArgs(name="nginx", image="nginx")]),
+        ),
+    ),
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
+)
+
+# Create our app service
+app_service_name = f"{proj_name}-app-service"
+app_service = Service(app_service_name,
+    metadata=ObjectMetaArgs(namespace=namespace, name=app_service_name),
+    spec=ServiceSpecArgs(type="NodePort", selector=labels, ports=[ServicePortArgs(port=80)]),
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
+)
+
+pulumi.export("app_service", app_service.metadata)
+
+#### ALB Ingress Controller AWS Permisions
+alb_iam_policy_name = f"{proj_name}-alb-iam"
+alb_ingress_controller_iam_policy = aws.iam.Policy(alb_iam_policy_name,
+    name=alb_iam_policy_name,
     policy="""{
   "Version": "2012-10-17",
   "Statement": [
@@ -197,6 +221,8 @@ alb_ingress_controller_iam_policy_policy = aws.iam.Policy(alb_iam_policy,
   ]
 }
 """)
+
+
 alb_role_name = f"{proj_name}-alb-role"
 eks_alb_ingress_controller = aws.iam.Role(alb_role_name,
     name=alb_role_name,
@@ -221,126 +247,108 @@ eks_alb_ingress_controller = aws.iam.Role(alb_role_name,
 }
 """)
 
-alb_role_attachment_name = f"{proj_name}-alb-role-attach",
+alb_role_attachment_name = f"{proj_name}-alb-role-attach"
 alb_ingress_controller_iam_policy_role_policy_attachment = aws.iam.RolePolicyAttachment(alb_role_attachment_name,
     policy_arn=alb_ingress_controller_iam_policy_policy.arn,
     role=eks_alb_ingress_controller.name)
 
 
-# #### App ####
-# # Create the deployment for our app
-# labels = {"app": "nginx"}
-# namespace = "default" # using default for now
-# app_deployment = Deployment(
-#     f"{proj_name}-app-deployment",
-#     spec=DeploymentSpecArgs(
-#         selector=LabelSelectorArgs(match_labels=labels),
-#         replicas=1,
-#         template=PodTemplateSpecArgs(
-#             metadata=ObjectMetaArgs(namespace=namespace, labels=labels),
-#             spec=PodSpecArgs(containers=[ContainerArgs(name="nginx", image="nginx")]),
-#         ),
-#     ),
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
-# )
+### INGRESS ###
+# Create RBAC for Ingress deployment and service
+alb_ingress_controller_cluster_role_name = f"{proj_name}-cluster-role"
+alb_ingress_controller_cluster_role = kubernetes.rbac.v1.ClusterRole(alb_ingress_controller_cluster_role_name,
+    api_version="rbac.authorization.k8s.io/v1",
+    kind="ClusterRole",
+    metadata={
+        "labels": {
+            "app.kubernetes.io/name": "alb-ingress-controller",
+        },
+        "name": alb_ingress_controller_cluster_role_name,
+    },
+    rules=[
+        {
+            "api_groups": [
+                "",
+                "extensions",
+            ],
+            "resources": [
+                "configmaps",
+                "endpoints",
+                "events",
+                "ingresses",
+                "ingresses/status",
+                "services",
+            ],
+            "verbs": [
+                "create",
+                "get",
+                "list",
+                "update",
+                "watch",
+                "patch",
+            ],
+        },
+        {
+            "api_groups": [
+                "",
+                "extensions",
+            ],
+            "resources": [
+                "nodes",
+                "pods",
+                "secrets",
+                "services",
+                "namespaces",
+            ],
+            "verbs": [
+                "get",
+                "list",
+                "watch",
+            ],
+        },
+    ],
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
 
-# # Create our app service
-# app_service_name = f"{proj_name}-app-service"
-# app_service = Service(app_service_name,
-#     metadata=ObjectMetaArgs(namespace=namespace, name=app_service_name),
-#     spec=ServiceSpecArgs(type="NodePort", selector=labels, ports=[ServicePortArgs(port=80)]),
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
-# )
+kube_system_ingress_service_account_name = f"{proj_name}-sa"
+kube_system_alb_ingress_controller_service_account = kubernetes.core.v1.ServiceAccount(kube_system_ingress_service_account_name,
+    api_version="v1",
+    kind="ServiceAccount",
+    metadata={
+        "labels": {
+            "app.kubernetes.io/name": kube_system_ingress_service_account_name,
+        },
+        "name": kube_system_ingress_service_account_name,
+        "namespace": "kube-system",
+        "annotations": [{"eks.amazonaws.com/role-arn", f"{eks_alb_ingress_controller.arn}"}]
+    }
+    },
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
+
+pulumi.export("kube_system_alb_ingress_controller_service_account", kube_system_alb_ingress_controller_service_account.metadata)
 
 
+alb_ingress_cluster_role_binding_name = f"{proj_name}-role-binding"
+alb_ingress_controller_cluster_role_binding = kubernetes.rbac.v1.ClusterRoleBinding(alb_ingress_cluster_role_binding_name,
+    api_version="rbac.authorization.k8s.io/v1",
+    kind="ClusterRoleBinding",
+    metadata={
+        "labels": {
+            "app.kubernetes.io/name": alb_ingress_cluster_role_binding_name,
+        },
+        "name": alb_ingress_cluster_role_binding_name,
+    },
+    role_ref={
+        "api_group": "rbac.authorization.k8s.io",
+        "kind": "ClusterRole",
+        "name": alb_ingress_controller_cluster_role_name, #"alb-ingress-controller",
+    },
+    subjects=[{
+        "kind": "ServiceAccount",
+        "name": kube_system_ingress_service_account_name
+        "namespace": "kube-system",
+    }],
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
 
-# ### INGRESS ###
-# # Create RBAC for Ingress deployment and service
-# alb_ingress_controller_cluster_role = kubernetes.rbac.v1.ClusterRole("alb_ingress_controllerClusterRole",
-#     api_version="rbac.authorization.k8s.io/v1",
-#     kind="ClusterRole",
-#     metadata={
-#         "labels": {
-#             "app.kubernetes.io/name": "alb-ingress-controller",
-#         },
-#         "name": "alb-ingress-controller",
-#     },
-#     rules=[
-#         {
-#             "api_groups": [
-#                 "",
-#                 "extensions",
-#             ],
-#             "resources": [
-#                 "configmaps",
-#                 "endpoints",
-#                 "events",
-#                 "ingresses",
-#                 "ingresses/status",
-#                 "services",
-#             ],
-#             "verbs": [
-#                 "create",
-#                 "get",
-#                 "list",
-#                 "update",
-#                 "watch",
-#                 "patch",
-#             ],
-#         },
-#         {
-#             "api_groups": [
-#                 "",
-#                 "extensions",
-#             ],
-#             "resources": [
-#                 "nodes",
-#                 "pods",
-#                 "secrets",
-#                 "services",
-#                 "namespaces",
-#             ],
-#             "verbs": [
-#                 "get",
-#                 "list",
-#                 "watch",
-#             ],
-#         },
-#     ],
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
-
-# alb_ingress_controller_cluster_role_binding = kubernetes.rbac.v1.ClusterRoleBinding("alb_ingress_controllerClusterRoleBinding",
-#     api_version="rbac.authorization.k8s.io/v1",
-#     kind="ClusterRoleBinding",
-#     metadata={
-#         "labels": {
-#             "app.kubernetes.io/name": "alb-ingress-controller",
-#         },
-#         "name": "alb-ingress-controller",
-#     },
-#     role_ref={
-#         "api_group": "rbac.authorization.k8s.io",
-#         "kind": "ClusterRole",
-#         "name": "alb-ingress-controller",
-#     },
-#     subjects=[{
-#         "kind": "ServiceAccount",
-#         "name": "alb-ingress-controller",
-#         "namespace": "kube-system",
-#     }],
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
-
-# kube_system_alb_ingress_controller_service_account = kubernetes.core.v1.ServiceAccount("kube_systemAlb_ingress_controllerServiceAccount",
-#     api_version="v1",
-#     kind="ServiceAccount",
-#     metadata={
-#         "labels": {
-#             "app.kubernetes.io/name": "alb-ingress-controller",
-#         },
-#         "name": "alb-ingress-controller",
-#         "namespace": "kube-system",
-#     },
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider))
 
 
 
@@ -357,30 +365,30 @@ alb_ingress_controller_iam_policy_role_policy_attachment = aws.iam.RolePolicyAtt
 #     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
 # )
 
-# # Create the deployment for the alb ingress controller
-# alb_deployment_name = f"{proj_name}-alb-deployment"
-# alb_labels = {"app.kubernetes.io/name":"alb-ingress-controller"}
-# alb_deployment = Deployment(
-#     alb_deployment_name, 
-#     metadata=ObjectMetaArgs(name=alb_deployment_name, namespace="kube-system", labels=alb_labels),
-#     spec=DeploymentSpecArgs(
-#         selector=LabelSelectorArgs(match_labels=alb_labels),
-#         template=PodTemplateSpecArgs(
-#             metadata=ObjectMetaArgs(labels=alb_labels),
-#             spec=PodSpecArgs(containers=[ContainerArgs(
-#                 name="alb-ingress-controller", 
-#                 image="docker.io/amazon/aws-alb-ingress-controller:v1.1.6",
-#                 args=["--ingress-class=alb","--cluster-name=synapse-eks-demo-eks-eksCluster-61add7c","--aws-vpc-id=vpc-08cc8cd01a18e129b","--aws-region=us-east-2"]
-#                 #args=["--ingress-class=alb",f"--cluster-name={cluster.name}",f"--aws-vpc-id={vpc_id}","--aws-region=us-east-2"]
-#                 )]
-#             )
-#         )
-#     ),
-#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
-# )
-# # Create the ingress.
-# # EKS with fargate will create an ALB
-# # https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
+# Create the deployment for the alb ingress controller
+alb_deployment_name = f"{proj_name}-alb-deployment"
+alb_labels = {"app.kubernetes.io/name":"alb-ingress-controller"}
+alb_deployment = Deployment(
+    alb_deployment_name, 
+    metadata=ObjectMetaArgs(name=alb_deployment_name, namespace="kube-system", labels=alb_labels),
+    spec=DeploymentSpecArgs(
+        selector=LabelSelectorArgs(match_labels=alb_labels),
+        template=PodTemplateSpecArgs(
+            metadata=ObjectMetaArgs(labels=alb_labels),
+            spec=PodSpecArgs(containers=[ContainerArgs(
+                name="alb-ingress-controller", 
+                image="docker.io/amazon/aws-alb-ingress-controller:v1.1.6",
+                args=["--ingress-class=alb","--cluster-name=synapse-eks-demo-eks-eksCluster-61add7c","--aws-vpc-id=vpc-08cc8cd01a18e129b","--aws-region=us-east-2"]
+                #args=["--ingress-class=alb",f"--cluster-name={cluster.name}",f"--aws-vpc-id={vpc_id}","--aws-region=us-east-2"]
+                )]
+            )
+        )
+    ),
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
+)
+# Create the ingress.
+# EKS with fargate will create an ALB
+# https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
 # app_ingress_name = f"{proj_name}-ingress"
 # app_ingress = Ingress(
 #     app_ingress_name,
