@@ -1,6 +1,6 @@
-name: synapse-eks-demo
+name: eks-main
 runtime:
   name: python
   options:
     virtualenv: venv
-description: A minimal AWS Python Pulumi program
+description: Stands up EKS on fargate.
