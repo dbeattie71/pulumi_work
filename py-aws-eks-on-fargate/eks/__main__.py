@@ -1,5 +1,4 @@
 import pulumi
-import pulumi_eks as eks
 import app  
 
 from pulumi import ResourceOptions, Output
@@ -9,6 +8,7 @@ from pulumi_aws.eks import FargateProfileSelectorArgs
 from pulumi_kubernetes import Provider
 from pulumi_kubernetes.core.v1 import Namespace
 from pulumi_kubernetes.meta.v1 import ObjectMetaArgs
+
 
 # Get config values to use for the stack
 config = pulumi.Config()
@@ -60,13 +60,15 @@ app_namespace = Namespace(app_namespace_name,
 # Use custom resource to create the App
 app_name = f"{proj_name}-app"
 app_labels = {"app": "nginx"}
-app = app.App(app_name, app.AppArgs(
+nginx_app = app.App(app_name, app.AppArgs(
     namespace=app_namespace.metadata.name,
     provider=k8s_provider,
     app_name=app_name,
     image_name="nginx",
     labels=app_labels,
-    replicas=1,
+    replicas=2,
     service_port=80
 ))
+
+
 
