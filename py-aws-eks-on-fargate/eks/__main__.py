@@ -53,8 +53,6 @@ cluster = Cluster(
 kubeconfig = pulumi.Output.secret(cluster.kubeconfig)
 pulumi.export("kubeconfig", kubeconfig)
 
-
-
 # Create a k8s provider based on kubeconfig from EKS cluster.
 k8s_provider = Provider(
     "k8s", kubeconfig=kubeconfig,
@@ -82,19 +80,25 @@ nginx_app = app.App(app_name, app.AppArgs(
 
 ### INGRESS ###
 # ingress controller
+#ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url,cluster.core.name, cluster.core.vpc_id).apply(
 ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url).apply(
     lambda args: ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
+#ingress_controller = ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
         provider=k8s_provider,
         proj_name=proj_name,
-        oidc_provider_arn=args[0],
-        oidc_provider_url=args[1],
         #oidc_provider_arn=cluster.core.oidc_provider.arn,
         #oidc_provider_url=cluster.core.oidc_provider.url,
-        cluster_name = cluster.core.name,
+        oidc_provider_arn=args[0],
+        oidc_provider_url=args[1],
+        #cluster_name = args[2],
+        #vpc_id = args[3],
+        cluster_name = cluster.core.cluster.name,
         vpc_id = cluster.core.vpc_id,
         aws_region= "us-east-2",
     ))
 )
+
+#pulumi.export("service account", ingress_controller.ingress_ctl_k8s_service_account)
 
 # Create the ingress - the above created controller will see the request and build the requisite ALB and connections to the 
 # applicable fargate pod(s)
