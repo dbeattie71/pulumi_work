@@ -76,12 +76,16 @@ nginx_app = app.App(app_name, app.AppArgs(
 ### INGRESS ###
 # ingress controller
 ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url).apply(
-    lambda args: 
-        ingress_ctl.IngressCtl(f"{proj_name}-ing-perms", ingress_ctl.IngressCtlArgs(
+    lambda args: ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
         provider=k8s_provider,
         proj_name=proj_name,
         oidc_provider_arn=args[0],
-        oidc_provider_url=args[1]
+        oidc_provider_url=args[1],
+        #oidc_provider_arn=cluster.core.oidc_provider.arn,
+        #oidc_provider_url=cluster.core.oidc_provider.url,
+        cluster_name = cluster.core.name,
+        vpc_id = cluster.core.vpc_id,
+        aws_region= "us-east-2",
     ))
 )
 
