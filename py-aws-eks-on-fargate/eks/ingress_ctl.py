@@ -141,7 +141,8 @@ class IngressCtl(ComponentResource):
           metadata=ObjectMetaArgs(labels=alb_labels),
           spec=PodSpecArgs(containers=[ContainerArgs(
               name="alb-ingress-controller", 
-              image="docker.io/amazon/aws-alb-ingress-controller:v1.1.6",
+              #image="docker.io/amazon/aws-alb-ingress-controller:v1.1.6",
+              image="602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller",
               args=["--ingress-class=alb",f"--cluster-name={cluster_name}",f"--aws-vpc-id={vpc_id}",f"--aws-region={aws_region}"]
               #args=["--ingress-class=alb","--cluster-name=eks-main-eks-eksCluster-76d53ff","--aws-vpc-id=vpc-0b7b646c66cd6f099","--aws-region=us-east-2"]
               #args=["--ingress-class=alb",f"--cluster-name={cluster.name}",f"--aws-vpc-id={vpc_id}","--aws-region=us-east-2"]

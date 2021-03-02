@@ -9,6 +9,13 @@ from pulumi_aws.eks import FargateProfileSelectorArgs
 from pulumi_kubernetes import Provider
 from pulumi_kubernetes.core.v1 import Namespace
 from pulumi_kubernetes.meta.v1 import ObjectMetaArgs
+from pulumi_kubernetes.extensions.v1beta1 import (
+    Ingress,
+    IngressSpecArgs,
+    IngressRuleArgs,
+    HTTPIngressRuleValueArgs,
+    HTTPIngressPathArgs,
+    IngressBackendArgs)
 
 
 # Get config values to use for the stack
@@ -91,5 +98,27 @@ ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oid
 
 # Create the ingress - the above created controller will see the request and build the requisite ALB and connections to the 
 # applicable fargate pod(s)
+# Create the ingress.
+# EKS with fargate will create an ALB
+# https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
+app_ingress_name = f"{proj_name}-ingress"
+app_ingress = Ingress(
+    app_ingress_name,
+    metadata=ObjectMetaArgs(namespace=app_namespace_name, name=app_ingress_name, annotations={
+        "kubernetes.io/ingress.class": "alb",
+        "alb.ingress.kubernetes.io/scheme": "internet-facing",
+        "alb.ingress.kubernetes.io/target-type": "ip"}),
+    spec=IngressSpecArgs(
+        rules=[IngressRuleArgs(
+            http=HTTPIngressRuleValueArgs(
+                paths=[HTTPIngressPathArgs(
+                    path="/*", 
+                    backend=IngressBackendArgs(service_name=nginx_app.app_service.metadata.name, service_port=80)
+                )]
+            )
+        )]
+    ),
+    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
+)
 
 
