@@ -1,3 +1,3 @@
 config:
   aws:region: us-east-2
-  eks-main:vpcStack: demo/eks-vpc/dev
+  eks-main:vpcStack: MitchGerdisch/eks-vpc/dev

@@ -9,4 +9,5 @@ const vpc = new Vpc(projName, {
 
 export const vpcId = vpc.id
 export const privateSubnetIds = vpc.privateSubnetIds
+export const publicSubnetIds = vpc.publicSubnetIds
 

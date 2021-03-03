@@ -31,6 +31,7 @@ vpc_stack = config.get("vpcStack")
 vpc_stack_ref = pulumi.StackReference(vpc_stack)
 vpc_id = vpc_stack_ref.get_output("vpcId")
 priv_subnet_ids = vpc_stack_ref.get_output("privateSubnetIds")
+public_subnet_ids = vpc_stack_ref.get_output("publicSubnetIds")
 
 ### EKS CLUSTER ON FARGATE ###
 # Using an app-specific namespace instead of default.
@@ -49,6 +50,7 @@ cluster = Cluster(
     private_subnet_ids = priv_subnet_ids,
     create_oidc_provider=True,
 )
+
 # Get the kubeconfig but keep it a secret.
 kubeconfig = pulumi.Output.secret(cluster.kubeconfig)
 pulumi.export("kubeconfig", kubeconfig)
@@ -58,53 +60,41 @@ k8s_provider = Provider(
     "k8s", kubeconfig=kubeconfig,
 )
 
-# Create the app namespace on the EKS cluster
-app_namespace = Namespace(app_namespace_name,
-    metadata=ObjectMetaArgs(name=app_namespace_name),
-    opts=ResourceOptions(provider=k8s_provider),
-)
-
 ### App ###
 # Use custom resource to create the App
 app_name = f"{proj_name}-app"
 app_labels = {"app": "nginx"}
 nginx_app = app.App(app_name, app.AppArgs(
-    namespace=app_namespace.metadata.name,
     provider=k8s_provider,
+    app_namespace_name=app_namespace_name,
     app_name=app_name,
     image_name="nginx",
     labels=app_labels,
     replicas=2,
-    service_port=80
+    service_port=80,
 ))
 
-### INGRESS ###
-# ingress controller
-#ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url,cluster.core.name, cluster.core.vpc_id).apply(
+### INGRESS Controller ###
+# Deploy the aws alb ingress controller and any related bits
 ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url).apply(
     lambda args: ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
-#ingress_controller = ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
         provider=k8s_provider,
         proj_name=proj_name,
-        #oidc_provider_arn=cluster.core.oidc_provider.arn,
-        #oidc_provider_url=cluster.core.oidc_provider.url,
         oidc_provider_arn=args[0],
         oidc_provider_url=args[1],
-        #cluster_name = args[2],
-        #vpc_id = args[3],
         cluster_name = cluster.core.cluster.name,
         vpc_id = cluster.core.vpc_id,
         aws_region= "us-east-2",
     ))
 )
 
-#pulumi.export("service account", ingress_controller.ingress_ctl_k8s_service_account)
+# # # #pulumi.export("service account", ingress_controller.ingress_ctl_k8s_service_account)
 
-# Create the ingress - the above created controller will see the request and build the requisite ALB and connections to the 
-# applicable fargate pod(s)
-# Create the ingress.
-# EKS with fargate will create an ALB
-# https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
+# # # Create the ingress - the above created controller will see the request and build the requisite ALB and connections to the 
+# # # applicable fargate pod(s)
+# # # Create the ingress.
+# # # EKS with fargate will create an ALB
+# # # https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
 app_ingress_name = f"{proj_name}-ingress"
 app_ingress = Ingress(
     app_ingress_name,

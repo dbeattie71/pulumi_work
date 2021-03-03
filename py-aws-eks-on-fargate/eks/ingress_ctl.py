@@ -48,53 +48,57 @@ class IngressCtl(ComponentResource):
     controller_name = f"{proj_name}-alb-controller"
     service_account_name = f"{proj_name}-sa"
 
+
     # https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/installation/
     # step 1: addressed when creating EKS cluster
     # step 2: policy json in ingress_ctl_jsons.py
     # step 3: create AWS IAM policy:
-    # self.ingress_ctl_iam_policy = aws.iam.Policy(f"{proj_name}-ingress-ctl-iam-policy",
-    #   policy=json.dumps(ingress_ctl_jsons.ingress_ctl_iam_policy),
-    #   opts=ResourceOptions(parent=self))
+    self.ingress_ctl_iam_policy = aws.iam.Policy(f"{proj_name}-ingress-ctl-iam-policy",
+      policy=json.dumps(ingress_ctl_jsons.ingress_ctl_iam_policy),
+      opts=ResourceOptions(parent=self))
 
     # # step 4: create IAM role and ServiceAccount for the AWS Load balancer controller:
-    # assume_role_policy = {
-    #   "Version": "2012-10-17",
-    #   "Statement": [
-    #     {
-    #       "Effect": "Allow",
-    #       "Principal": {
-    #         "Federated": f"{oidc_provider_arn}"
-    #       },
-    #       "Action": "sts:AssumeRoleWithWebIdentity",
-    #       "Condition": {
-    #         "StringEquals": {
-    #           f"{oidc_provider_url}:sub": f"system:serviceaccount:kube-system:{service_account_name}"
-    #         }
-    #       }
-    #     }
-    #   ]
-    # }
-    # self.ingress_ctl_iam_role = aws.iam.Role(f"{proj_name}-ingress-ctl-iam-role",
-    #   description="Permissions required by the Kubernetes AWS ALB Ingress controller to do it's job.",
-    #   force_detach_policies=True,
-    #   assume_role_policy=json.dumps(assume_role_policy),
-    #   opts=ResourceOptions(parent=self))
-    # self.ingress_ctl_role_attachment = aws.iam.RolePolicyAttachment(f"{proj_name}-ingress-ctl-iam-role-attachment",
-    #   policy_arn=self.ingress_ctl_iam_policy.arn,
-    #   role=self.ingress_ctl_iam_role.name,
-    #   opts=ResourceOptions(parent=self))
-    # self.ingress_ctl_k8s_service_account = ServiceAccount(service_account_name,
-    #   #api_version="v1",
-    #   #kind="ServiceAccount",
-    #   metadata=ObjectMetaArgs(
-    #     labels={ "app.kubernetes.io/name": "aws-load-balancer-controller" },
-    #     name=service_account_name,
-    #     namespace="kube-system",
-    #     ####"annotations": [{"eks.amazonaws.com/role-arn", f"{eks_alb_ingress_controller.arn}"}]
-    #     #annotations={"eks.amazonaws.com/role-arn": ctl_iam_role_arn},
-    #     annotations={"eks.amazonaws.com/role-arn": self.ingress_ctl_iam_role.arn},
-    #   ),
-    #   opts=ResourceOptions(parent=self, provider=k8s_provider))
+    assume_role_policy = {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": f"{oidc_provider_arn}"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              f"{oidc_provider_url}:sub": f"system:serviceaccount:kube-system:{service_account_name}"
+            }
+          }
+        }
+      ]
+    }
+    self.ingress_ctl_iam_role = aws.iam.Role(f"{proj_name}-ingress-ctl-iam-role",
+      description="Permissions required by the Kubernetes AWS ALB Ingress controller to do it's job.",
+      force_detach_policies=True,
+      assume_role_policy=json.dumps(assume_role_policy),
+      opts=ResourceOptions(parent=self))
+    self.ingress_ctl_role_attachment = aws.iam.RolePolicyAttachment(f"{proj_name}-ingress-ctl-iam-role-attachment",
+      policy_arn=self.ingress_ctl_iam_policy.arn,
+      role=self.ingress_ctl_iam_role.name,
+      opts=ResourceOptions(parent=self))
+
+    self.ingress_ctl_k8s_service_account = ServiceAccount(service_account_name,
+      #api_version="v1",
+      #kind="ServiceAccount",
+      metadata=ObjectMetaArgs(
+        labels={ "app.kubernetes.io/name": "aws-load-balancer-controller" },
+        name=service_account_name,
+        namespace="kube-system",
+        ####"annotations": [{"eks.amazonaws.com/role-arn", f"{eks_alb_ingress_controller.arn}"}]
+        #annotations={"eks.amazonaws.com/role-arn": ctl_iam_role_arn},
+        annotations={"eks.amazonaws.com/role-arn": self.ingress_ctl_iam_role.arn},
+      ),
+      opts=ResourceOptions(parent=self, provider=k8s_provider))
+
+
 
     # helm steps:
     # helm-1: "Add the EKS chart repo to helm" is not applicable in pulumi
@@ -103,7 +107,8 @@ class IngressCtl(ComponentResource):
     def remove_status(obj, opts):
       if obj["kind"] == "CustomResourceDefinition":
         del obj["status"]
-        
+
+#### skip since helm chart appears to make target group bindings too
     # self.alb_controller_crd = ConfigFile(f"{proj_name}-alb-crd",
     #   file="aws-lb-controller-crd.yaml",
     #   transformations=[remove_status],
@@ -124,10 +129,12 @@ class IngressCtl(ComponentResource):
           ),
           values={
             "clusterName":cluster_name, #"eks-main-eks-eksCluster-76d53ff", #cluster_name,
-          #   "serviceAccount": {
-          #     "create": "false",
-          #     "name": service_account_name, #self.ingress_ctl_k8s_service_account.metadata.name 
-          #   }
+            "region":aws_region,
+            "vpcId":vpc_id,
+            "serviceAccount": {
+              "create": False,
+              "name": service_account_name, #self.ingress_ctl_k8s_service_account.metadata.name 
+            }
           }
       ),
       opts=ResourceOptions(parent=self, provider=k8s_provider))

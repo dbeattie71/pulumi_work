@@ -16,16 +16,16 @@ from pulumi_kubernetes.meta.v1 import LabelSelectorArgs, ObjectMetaArgs
 class AppArgs:
 
     def __init__(self,
-                namespace="default",
                 provider=None,
                 app_name=None,
+                app_namespace_name=None,
                 image_name=None,
                 labels=None,
                 replicas=1,
                 service_port=None,
                  ):
-        self.namespace = namespace
         self.app_name = app_name
+        self.app_namespace_name = app_namespace_name
         self.image_name = image_name
         self.labels = labels
         self.replicas = replicas
@@ -46,14 +46,20 @@ class App(ComponentResource):
         k8s_provider = args.provider
         app_labels = args.labels
         app_deployment_name = f"{args.app_name}-app-deployment"
-        app_namespace = args.namespace
+        app_namespace_name = args.app_namespace_name
         service_ports = [ServicePortArgs(port=args.service_port)]
+
+        # Create the app namespace on the EKS cluster
+        self.app_namespace = Namespace(app_namespace_name,
+            metadata=ObjectMetaArgs(name=app_namespace_name),
+            opts=ResourceOptions(provider=k8s_provider, parent=self),
+        )
 
         self.app_deployment = Deployment(
             app_deployment_name,
             metadata=ObjectMetaArgs(
                 labels=app_labels,
-                namespace=app_namespace
+                namespace=app_namespace_name,
             ),
             spec=DeploymentSpecArgs(
                 selector=LabelSelectorArgs(match_labels=app_labels),
@@ -69,7 +75,7 @@ class App(ComponentResource):
         # Create our app service
         app_service_name = f"{args.app_name}-app-service"
         self.app_service = Service(app_service_name,
-            metadata=ObjectMetaArgs(namespace=app_namespace),
+            metadata=ObjectMetaArgs(namespace=app_namespace_name),
             spec=ServiceSpecArgs(type="NodePort", selector=app_labels, ports=service_ports),
             opts=ResourceOptions(provider=k8s_provider, parent=self),
         )
