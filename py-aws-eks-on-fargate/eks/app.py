@@ -42,7 +42,6 @@ class App(ComponentResource):
 
         super().__init__("custom:resource:App", name, {}, opts)
 
-
         k8s_provider = args.provider
         app_labels = args.labels
         app_deployment_name = f"{args.app_name}-app-deployment"
@@ -75,7 +74,9 @@ class App(ComponentResource):
         # Create our app service
         app_service_name = f"{args.app_name}-app-service"
         self.app_service = Service(app_service_name,
-            metadata=ObjectMetaArgs(namespace=app_namespace_name),
+            metadata=ObjectMetaArgs(
+                namespace=app_namespace_name,
+            ),
             spec=ServiceSpecArgs(type="NodePort", selector=app_labels, ports=service_ports),
             opts=ResourceOptions(provider=k8s_provider, parent=self),
         )
