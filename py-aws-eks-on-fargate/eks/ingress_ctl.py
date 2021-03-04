@@ -1,5 +1,5 @@
 import pulumi
-from pulumi import ComponentResource, ResourceOptions
+from pulumi import ComponentResource, ResourceOptions,Output
 from pulumi_kubernetes.rbac.v1 import ClusterRole,ClusterRoleBinding,RoleRefArgs,SubjectArgs
 from pulumi_kubernetes.apps.v1 import Deployment, DeploymentSpecArgs
 from pulumi_kubernetes.core.v1 import ContainerArgs, PodSpecArgs, PodTemplateSpecArgs, ServiceAccount
@@ -15,16 +15,14 @@ class IngressCtlArgs:
   def __init__(self,
               proj_name=None,
               provider=None,
-              oidc_provider_arn=None, 
-              oidc_provider_url=None, 
+              oidc_provider=None, 
               cluster_name=None,
               vpc_id=None,
               aws_region="us-east-2",
                 ):
     self.provider = provider
     self.proj_name = proj_name
-    self.oidc_provider_arn = oidc_provider_arn
-    self.oidc_provider_url = oidc_provider_url
+    self.oidc_provider = oidc_provider
     self.cluster_name = cluster_name
     self.vpc_id = vpc_id
     self.aws_region = aws_region
@@ -40,8 +38,7 @@ class IngressCtl(ComponentResource):
 
     k8s_provider = args.provider
     proj_name = args.proj_name
-    oidc_provider_arn = args.oidc_provider_arn
-    oidc_provider_url = args.oidc_provider_url
+    oidc_provider = args.oidc_provider
     cluster_name = args.cluster_name
     vpc_id = args.vpc_id
     aws_region = args.aws_region
@@ -61,28 +58,30 @@ class IngressCtl(ComponentResource):
       opts=ResourceOptions(parent=self))
 
     # step 4: create IAM role and ServiceAccount for the AWS Load balancer controller as follows:
-    assume_role_policy = {
-      "Version": "2012-10-17",
-      "Statement": [
-        {
-          "Effect": "Allow",
-          "Principal": {
-            "Federated": f"{oidc_provider_arn}"
-          },
-          "Action": "sts:AssumeRoleWithWebIdentity",
-          "Condition": {
-            "StringEquals": {
-              f"{oidc_provider_url}:sub": f"system:serviceaccount:kube-system:{service_account_name}"
+    assume_role_policy = Output.all(oidc_provider.arn, oidc_provider.url).apply(
+      lambda args: json.dumps({
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Federated": f"{args[0]}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+              "StringEquals": {
+                f"{args[1]}:sub": f"system:serviceaccount:kube-system:{service_account_name}"
+              }
             }
           }
-        }
-      ]
-    }
+        ]
+      })
+    )
 
     self.ingress_ctl_iam_role = aws.iam.Role(f"{proj_name}-ingress-ctl-iam-role",
       description="Permissions required by the Kubernetes AWS ALB Ingress controller to do it's job.",
       force_detach_policies=True,
-      assume_role_policy=json.dumps(assume_role_policy),
+      assume_role_policy=assume_role_policy,
       opts=ResourceOptions(parent=self))
 
     self.ingress_ctl_role_attachment = aws.iam.RolePolicyAttachment(f"{proj_name}-ingress-ctl-iam-role-attachment",
@@ -97,7 +96,7 @@ class IngressCtl(ComponentResource):
         namespace="kube-system",
         annotations={"eks.amazonaws.com/role-arn": self.ingress_ctl_iam_role.arn},
       ),
-      opts=ResourceOptions(parent=self, provider=k8s_provider))
+      opts=ResourceOptions(parent=self, provider=k8s_provider, depends_on=[self.ingress_ctl_role_attachment]))
 
     # helm steps from the above referenced documentation has a few steps ... 
     # helm-1: "Add the EKS chart repo to helm" is not applicable in pulumi
@@ -108,7 +107,7 @@ class IngressCtl(ComponentResource):
         del obj["status"]
 
     # helm-2: install TargetGroupBinding CRD that was downloaded from here: https://github.com/aws/eks-charts/blob/master/stable/aws-load-balancer-controller/crds/crds.yaml
-    # skipped since helm chart creates the target bindings so adding the crd is not needed.
+    # skipped since helm chart creates the target bindings so adding the crd causes an error due to duplication
     # self.alb_controller_crd = ConfigFile(f"{proj_name}-alb-crd",
     #   file="aws-lb-controller-crd.yaml",
     #   transformations=[remove_status],
@@ -139,6 +138,6 @@ class IngressCtl(ComponentResource):
             }
           }
       ),
-      opts=ResourceOptions(parent=self, provider=k8s_provider))
+      opts=ResourceOptions(parent=self, provider=k8s_provider, depends_on=[self.ingress_ctl_k8s_service_account]))
 
     self.register_outputs({})

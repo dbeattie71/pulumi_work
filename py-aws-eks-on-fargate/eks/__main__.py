@@ -49,6 +49,7 @@ cluster = Cluster(
     vpc_id=vpc_id,
     private_subnet_ids = priv_subnet_ids,
     create_oidc_provider=True,
+    version="1.19",
 )
 
 # Get the kubeconfig but keep it a secret.
@@ -76,47 +77,51 @@ nginx_app = app.App(app_name, app.AppArgs(
 
 ### INGRESS Controller ###
 # Deploy the aws alb ingress controller and any related bits
-ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url).apply(
-    lambda args: ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
+# ingress_controller = Output.all(cluster.core.oidc_provider.arn, cluster.core.oidc_provider.url).apply(
+#     lambda args: ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
+ingress_controller = ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressCtlArgs(
         provider=k8s_provider,
         proj_name=proj_name,
-        oidc_provider_arn=args[0],
-        oidc_provider_url=args[1],
+        oidc_provider=cluster.core.oidc_provider,
+        # oidc_provider_arn=args[0],
+        # oidc_provider_url=args[1],
         cluster_name = cluster.core.cluster.name,
         vpc_id = cluster.core.vpc_id,
         aws_region= "us-east-2",
     ))
-)
+# # )
 
-# Create the ingress - the above created controller but not the actual ingress to direct traffic to the application pod.
-# So, create an ingress that will trigger the aws alb controller to create the ALB and plumb things to the application pod(s).
-# https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
-app_ingress_name = f"{proj_name}-ingress"
-app_ingress = Ingress(
-    app_ingress_name,
-    metadata=ObjectMetaArgs(namespace=app_namespace_name, name=app_ingress_name, annotations={
-        "kubernetes.io/ingress.class": "alb",
-        "alb.ingress.kubernetes.io/scheme": "internet-facing",
-        "alb.ingress.kubernetes.io/target-type": "ip",
-        "pulumi.com/skipAwait": "true" # This skipAwait annotation is needed because the ALB controller doesn't return a status and so Pulumi timesout waiting for a value that never shows up.
-    }),
-    spec=IngressSpecArgs(
-        rules=[IngressRuleArgs(
-            http=HTTPIngressRuleValueArgs(
-                paths=[HTTPIngressPathArgs(
-                    path="/*", 
-                    backend=IngressBackendArgs(service_name=nginx_app.app_service.metadata.name, service_port=80)
-                )]
-            )
-        )]
-    ),
-    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider),
-)
+# # Create the ingress - the above created controller but not the actual ingress to direct traffic to the application pod.
+# # So, create an ingress that will trigger the aws alb controller to create the ALB and plumb things to the application pod(s).
+# # https://aws.amazon.com/blogs/containers/using-alb-ingress-controller-with-amazon-eks-on-fargate/
+# app_ingress_name = f"{proj_name}-ingress"
+# app_ingress = Ingress(
+#     app_ingress_name,
+#     metadata=ObjectMetaArgs(namespace=app_namespace_name, name=app_ingress_name, annotations={
+#         "kubernetes.io/ingress.class": "alb",
+#         "alb.ingress.kubernetes.io/scheme": "internet-facing",
+#         "alb.ingress.kubernetes.io/target-type": "ip",
+#         "pulumi.com/skipAwait": "true" # This skipAwait annotation is needed because the ALB controller doesn't return a status and so Pulumi timesout waiting for a value that never shows up.
+#     }),
+#     spec=IngressSpecArgs(
+#         rules=[IngressRuleArgs(
+#             http=HTTPIngressRuleValueArgs(
+#                 paths=[HTTPIngressPathArgs(
+#                     path="/*", 
+#                     backend=IngressBackendArgs(service_name=nginx_app.app_service.metadata.name, service_port=80)
+#                 )]
+#             )
+#         )]
+#     ),
+#     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider, depends_on=[ingress_controller,nginx_app]),
+# )
 
-# TO-DO: The AWS ALB ingress controller doesn't populate the Ingress' address field (related to the skipAwait setting above).
+# CAVEATS:
+# The AWS ALB ingress controller doesn't populate the Ingress' address field (related to the skipAwait setting above).
 # So, there's no property to tell me the ALB DNS name that I can export to the user.
 # So, need to figure out how to get that ALB DNS name so it can be outputted from the stack to confirm things are working.
 # In the mean time, going to the AWS console view for EC2-Load Balancers will show the ALB and provide that DNS name. :(
 # NOTE: You will have a wait a few minutes for the LB and Target group and targets to be fully configured.
+
 
 
