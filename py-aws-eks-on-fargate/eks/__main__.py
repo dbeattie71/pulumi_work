@@ -117,6 +117,6 @@ app_ingress = Ingress(
 # So, there's no property to tell me the ALB DNS name that I can export to the user.
 # So, need to figure out how to get that ALB DNS name so it can be outputted from the stack to confirm things are working.
 # In the mean time, going to the AWS console view for EC2-Load Balancers will show the ALB and provide that DNS name. :(
-# NOTE: You will have a wait a few minutes for the LB and Target group to be fully configured.
+# NOTE: You will have a wait a few minutes for the LB and Target group and targets to be fully configured.
 
 
