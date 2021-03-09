@@ -3,6 +3,7 @@ from pulumi_kubernetes import Provider
 from pulumi_kubernetes.apps.v1 import Deployment, DeploymentSpecArgs
 from pulumi_kubernetes.core.v1 import (
     ContainerArgs,
+    ContainerPortArgs,
     Namespace,
     PodSpecArgs,
     PodTemplateSpecArgs,
@@ -46,7 +47,8 @@ class App(ComponentResource):
         app_labels = args.labels
         app_deployment_name = f"{args.app_name}-app-deployment"
         app_namespace_name = args.app_namespace_name
-        service_ports = [ServicePortArgs(port=args.service_port)]
+        service_ports = [ServicePortArgs(port=args.service_port, target_port=args.service_port)]
+
 
         # Create the app namespace on the EKS cluster
         self.app_namespace = Namespace(app_namespace_name,
@@ -66,6 +68,7 @@ class App(ComponentResource):
                 template=PodTemplateSpecArgs(
                     metadata=ObjectMetaArgs(labels=app_labels),
                     spec=PodSpecArgs(containers=[ContainerArgs(name=args.app_name, image=args.image_name)]),
+                    #spec=PodSpecArgs(containers=[ContainerArgs(name=args.app_name, image=args.image_name, ports=[ContainerPortArgs(container_port=80)])]),
                 ),
             ),
             opts=ResourceOptions(provider=k8s_provider, parent=self),
@@ -78,6 +81,7 @@ class App(ComponentResource):
                 namespace=app_namespace_name,
             ),
             spec=ServiceSpecArgs(type="NodePort", selector=app_labels, ports=service_ports),
+            #spec=ServiceSpecArgs(type="LoadBalancer", selector=app_labels, ports=service_ports),
             opts=ResourceOptions(provider=k8s_provider, parent=self),
         )
 
