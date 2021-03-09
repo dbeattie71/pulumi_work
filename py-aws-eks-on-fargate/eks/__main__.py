@@ -118,8 +118,7 @@ app_ingress = Ingress(
     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider, depends_on=[ingress_controller,app]),
 )
 
-if not pulumi.runtime.is_dry_run():
-    alb_endpoint = Output.all(cluster.core.cluster.id, cluster.kubeconfig, app_ingress.id).apply(lambda args: get_alb_endpoint(args))
-    pulumi.export("App URL", alb_endpoint.apply(lambda ep: f"http://{ep}"))
+alb_endpoint = Output.all(cluster.core.cluster.id, cluster.kubeconfig, app_ingress.id).apply(lambda args: get_alb_endpoint(args))
+pulumi.export("App URL", alb_endpoint.apply(lambda ep: f"http://{ep}"))
 
 
