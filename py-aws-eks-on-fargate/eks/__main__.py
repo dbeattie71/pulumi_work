@@ -1,14 +1,12 @@
 import pulumi
 import app  
 import ingress_ctl
-from kubernetes import client, config
-from kubernetes.client.rest import ApiException
-import time
+from utils.helper_fns import get_alb_endpoint
 
 from pulumi import ResourceOptions, Output
 from pulumi_eks import Cluster
 from pulumi_eks.cluster import FargateProfileArgs
-from pulumi_aws.eks import FargateProfileSelectorArgs, get_cluster_auth
+from pulumi_aws.eks import FargateProfileSelectorArgs
 from pulumi_kubernetes import Provider
 from pulumi_kubernetes.core.v1 import Namespace
 from pulumi_kubernetes.meta.v1 import ObjectMetaArgs
@@ -75,26 +73,21 @@ ingress_controller = ingress_ctl.IngressCtl(f"{proj_name}", ingress_ctl.IngressC
         provider=k8s_provider,
         proj_name=proj_name,
         oidc_provider=cluster.core.oidc_provider,
-        # oidc_provider_arn=args[0],
-        # oidc_provider_url=args[1],
         cluster_name = cluster.core.cluster.name,
         namespace_name = alb_controller_namespace_name,
         vpc_id = cluster.core.vpc_id,
         aws_region= "us-east-2",
     ))
-# # )
 
 ### App ###
 # Use custom resource to create the App
 app_name = f"{proj_name}-app"
 app_labels = {"app": "nginx"}
-#app_labels = {"app": "game"}
 app = app.App(app_name, app.AppArgs(
     provider=k8s_provider,
     app_namespace_name=app_namespace_name,
     app_name=app_name,
     image_name="nginx",
-    #image_name="alexwhen/docker-2048",
     labels=app_labels,
     replicas=2,
     service_port=80,
@@ -110,8 +103,7 @@ app_ingress = Ingress(
         "kubernetes.io/ingress.class": "alb",
         "alb.ingress.kubernetes.io/scheme": "internet-facing",
         "alb.ingress.kubernetes.io/target-type": "ip",
-        #"pulumi.com/timeoutSeconds": "360",
-        "pulumi.com/skipAwait": "true" # This skipAwait annotation is needed because the ALB controller doesn't return a status and so Pulumi timesout waiting for a value that never shows up.
+        "pulumi.com/skipAwait": "true" # This skipAwait annotation is needed because the ALB controller doesn't return a status and so Pulumi times out waiting for a value that never shows up.
     }),
     spec=IngressSpecArgs(
         rules=[IngressRuleArgs(
@@ -126,66 +118,8 @@ app_ingress = Ingress(
     opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider, depends_on=[ingress_controller,app]),
 )
 
-### use python k8s client to wait for the ingress status to show the ALB information.
-def get_alb_endpoint(args):
-    cluster = args[0]
-    #cluster_address = cluster.kubeconfig.apply(lambda kubeconfig: kubeconfig["clusters"][0]["cluster"]["server"]
-    cluster_address = pulumi.Output(cluster.kubeconfig["clusters"][0]["cluster"]["server"])
-    print("cluster_address", cluster_address)
-    cluster_auth_obj = get_cluster_auth(cluster.core.cluster.id)
-    cluster_auth = cluster_auth_obj.token
-    print("cluster_auth", cluster_auth)
-    api_config = client.Configuration()
-    api_config.host = cluster_address
-    api_config.verify_ssl = False
-    api_config.api_key['authorization'] = cluster_auth
-    api_config.api_key_prefix['authorization'] = 'Bearer'
-    api_instance = client.ExtensionsV1beta1Api(client.ApiClient(api_config))
-    name = app_ingress_name
-    namespace = app_namespace_name
-    found_lb = False
-    done = False
-    lb_check_count = 0
-    while not done:
-        print("lb_check_count", lb_check_count)
-        try:
-            api_response = api_instance.read_namespaced_ingress_status(name, namespace) 
-            print("getting response")
-            alb_endpoint = api_response.status.load_balancer.ingress[0].hostname
-            print("alb_endpoint", alb_endpoint)
-            found_lb = True
-            done = True
-        except:
-            print("exception")
-            lb_check_count = lb_check_count + 1
-            if lb_check_count > 2:
-                done = True
-            print("sleeping")
-            time.sleep(15)
-    return f"{alb_endpoint}"
-
 if not pulumi.runtime.is_dry_run():
-    alb_endpoint = Output.all(cluster).apply(lambda args: get_alb_endpoint(args))
-    #pulumi.export("App URL", f"http://{alb-endpoint}")
+    alb_endpoint = Output.all(cluster.core.cluster.id, cluster.kubeconfig, app_ingress.id).apply(lambda args: get_alb_endpoint(args))
     pulumi.export("App URL", alb_endpoint.apply(lambda ep: f"http://{ep}"))
-
-
-# get_ingress = Ingress.get("my-gotten_ingress", 
-#     id=app_ingress.id,
-#     opts=ResourceOptions(provider=k8s_provider, depends_on=[app_ingress]),
-# )
-# pulumi.export("gotten ingress", get_ingress)
-
-# # lb_dns = app_ingress.status.apply(lambda status: status.load_balancer.ingress[0].hostname)
-# # pulumi.export("lb dns", lb_dns)
-
-
-# CAVEATS:
-# The AWS ALB ingress controller doesn't populate the Ingress' address field (related to the skipAwait setting above).
-# So, there's no property to tell me the ALB DNS name that I can export to the user.
-# So, need to figure out how to get that ALB DNS name so it can be outputted from the stack to confirm things are working.
-# In the mean time, going to the AWS console view for EC2-Load Balancers will show the ALB and provide that DNS name. :(
-# NOTE: You will have a wait a few minutes for the LB and Target group and targets to be fully configured.
-
 
 

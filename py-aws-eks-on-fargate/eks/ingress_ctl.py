@@ -7,7 +7,7 @@ from pulumi_kubernetes.meta.v1 import ObjectMetaArgs, LabelSelectorArgs
 from pulumi_kubernetes.helm.v3 import Chart, ChartOpts, FetchOpts
 from pulumi_kubernetes.yaml import ConfigFile
 import pulumi_aws as aws
-import ingress_ctl_jsons
+from utils.ingress_ctl_jsons import ingress_ctl_iam_policy
 import json
 
 class IngressCtlArgs:
@@ -85,7 +85,7 @@ class IngressCtl(ComponentResource):
     # https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.1.2/docs/install/iam_policy.json
     # and stored locally in ingress_ctl_jsons.py
     self.ingress_ctl_iam_policy = aws.iam.Policy(f"{proj_name}-ingress-ctl-iam-policy",
-      policy=json.dumps(ingress_ctl_jsons.ingress_ctl_iam_policy),
+      policy=json.dumps(ingress_ctl_iam_policy),
       opts=ResourceOptions(parent=self, depends_on=[self.ingress_ctl_iam_role]))
 
 
