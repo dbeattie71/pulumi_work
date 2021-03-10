@@ -60,10 +60,8 @@ cluster = Cluster(
 kubeconfig = pulumi.Output.secret(cluster.kubeconfig)
 pulumi.export("kubeconfig", kubeconfig)
 
-# Create a k8s provider based on kubeconfig from EKS cluster.
-k8s_provider = Provider(
-    "k8s", kubeconfig=kubeconfig,
-)
+# Get the k8s provider to use for subsequent updates to the EKS cluster.
+k8s_provider = cluster.provider
 
 ### INGRESS Controller ###
 # Deploy the aws alb ingress controller and any related bits
