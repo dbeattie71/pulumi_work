@@ -54,7 +54,6 @@ cluster = Cluster(
     vpc_id=vpc_id,
     private_subnet_ids = priv_subnet_ids,
     create_oidc_provider=True,
-    version="1.19",
 )
 # Get the kubeconfig but keep it a secret.
 kubeconfig = pulumi.Output.secret(cluster.kubeconfig)
@@ -113,9 +112,10 @@ app_ingress = Ingress(
             )
         )]
     ),
-    opts=ResourceOptions(parent=k8s_provider, provider=k8s_provider, depends_on=[ingress_controller,app]),
+    opts=ResourceOptions(provider=k8s_provider, depends_on=[ingress_controller,app]),
 )
 
+### Only really need to do this to have a nice URL to share with the user. ###
 alb_endpoint = Output.all(cluster.core.cluster.id, cluster.kubeconfig, app_ingress.id).apply(lambda args: get_alb_endpoint(args))
 pulumi.export("App URL", alb_endpoint.apply(lambda ep: f"http://{ep}"))
 
