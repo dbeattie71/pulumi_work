@@ -10,11 +10,13 @@ import * as aws from "@pulumi/aws";
 
 export interface ConfigData {
   nameBase: string
-  vpcCidrBlock: string,
-  vpcNumAvailZones: number,
+  vpcCidrBlock: string
+  vpcNumAvailZones: number
   region: string
   docDbInstanceClass: string
+  docDbInstanceCount: number
   docDbPassword: pulumi.Output<string>
+  docDbUser: string;
   // These are used if serving the API gateway from our zone.
   // Skipping for now
   certificateArn?: string //// FIXME Probably a resource we'll create if we go this route
@@ -32,6 +34,10 @@ export function getConfigData(): ConfigData {
   const vpcNumAvailZones = parseInt(config.get("vpcNumAvailZones") || "2")
 
   const docDbInstanceClass = config.get("docDbInstanceClass") || "db.t3.medium"
+  const docDbInstanceCount = parseInt(config.get("docDbInstanceCount") || "1")
+  let docDbUser = config.get("docDbUser") || "docdb_admin"
+  let docDbuser = docDbUser.replace("-", "_")
+  
   let docDbPassword = config.getSecret("docDbPassword")
   if (!docDbPassword) {
     const password = new random.RandomPassword(`${nameBase}-docDb-pwd`, {
@@ -48,6 +54,8 @@ export function getConfigData(): ConfigData {
     vpcNumAvailZones: vpcNumAvailZones, 
     region: region,
     docDbInstanceClass: docDbInstanceClass,
-    docDbPassword: docDbPassword
+    docDbInstanceCount: docDbInstanceCount,
+    docDbPassword: docDbPassword,
+    docDbUser: docDbuser
   }
 }

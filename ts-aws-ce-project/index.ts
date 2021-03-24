@@ -9,6 +9,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
+import { DocumentDb } from "./document-db"
 import * as eks from "@pulumi/eks";
 import { ConfigData, getConfigData } from "./utils/config"
 import { IngressCtl } from "./ingress-ctl"
@@ -30,50 +31,40 @@ const vpc = new awsx.ec2.Vpc(vpcName, {
   }
 })
 
-const documentDb = new aws.docdb.Cluster
-
-// Create eks cluster using fargate pods
-const cluster = new eks.Cluster(`${nameBase}-eks`, {
-  fargate: {
-    selectors: [{namespace: appNamespaceName}, {namespace: sysNamespaceName}, {namespace: albControllerNamespaceName}]
-  },
+const docDb = new DocumentDb(`${nameBase}`, {
   vpcId: vpc.id,
-  privateSubnetIds: vpc.privateSubnetIds,
-  createOidcProvider: true
-})
-// export (secretly) the kubeconfig in case user wants to use kubectl
-export const kubeconfig = pulumi.secret(cluster.kubeconfig)
-// create k8s provider for subsequent updates to the EKS cluster.
-const k8sProvider = cluster.provider
-
-// INGRESS Controller 
-// Deploy the aws alb ingress controller and any related bits
-const ingressController = new IngressCtl(`${nameBase}`, {
-  k8sProvider: k8sProvider,
-  projName: nameBase,
-  clusterName: cluster.core.cluster.name,
-  oidcProviderArn: cluster.core.oidcProvider?.arn, //|| "oidcprovider arn not found",
-  oidcProviderUrl: cluster.core.oidcProvider?.url, //|| "oidcprovider url not found",
-  namespaceName: albControllerNamespaceName,
-  vpcId: cluster.core.vpcId,
-  awsRegion: configData.region
+  subnetIds: vpc.privateSubnetIds,
+  instanceClass: configData.docDbInstanceClass,
+  instanceCount: configData.docDbInstanceCount,
+  adminUserName: configData.docDbUser,
+  adminPassword: configData.docDbPassword,
 })
 
 
-
-
-// const mskSg = new aws.ec2.SecurityGroup(`${nameBase}-sg-msk`, {
-//   vpcId: vpc.id
-// })
-
-// export const msk = new aws.msk.Cluster(`${nameBase}-msk`, {
-//   brokerNodeGroupInfo: {
-//     clientSubnets: vpc.privateSubnetIds,
-//     ebsVolumeSize: 5,
-//     instanceType: "kafka.t3.small",
-//     securityGroups: [mskSg.id]
+////////// IGNORING EKS FOR NOW ////////////
+// // Create eks cluster using fargate pods
+// const cluster = new eks.Cluster(`${nameBase}-eks`, {
+//   fargate: {
+//     selectors: [{namespace: appNamespaceName}, {namespace: sysNamespaceName}, {namespace: albControllerNamespaceName}]
 //   },
-//   kafkaVersion: "2.2.1",
-//   numberOfBrokerNodes: 2,
-//   clusterName: `${nameBase}-msk`
+//   vpcId: vpc.id,
+//   privateSubnetIds: vpc.privateSubnetIds,
+//   createOidcProvider: true
 // })
+// // export (secretly) the kubeconfig in case user wants to use kubectl
+// export const kubeconfig = pulumi.secret(cluster.kubeconfig)
+// // create k8s provider for subsequent updates to the EKS cluster.
+// const k8sProvider = cluster.provider
+
+// // INGRESS Controller 
+// // Deploy the aws alb ingress controller and any related bits
+// const ingressController = new IngressCtl(`${nameBase}`, {
+//   k8sProvider: k8sProvider,
+//   clusterName: cluster.core.cluster.name,
+//   oidcProviderArn: cluster.core.oidcProvider?.arn, //|| "oidcprovider arn not found",
+//   oidcProviderUrl: cluster.core.oidcProvider?.url, //|| "oidcprovider url not found",
+//   namespaceName: albControllerNamespaceName,
+//   vpcId: cluster.core.vpcId,
+//   awsRegion: configData.region
+// })
+

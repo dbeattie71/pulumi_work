@@ -6,7 +6,6 @@ import * as eks from "@pulumi/eks"
 import { ingressCtlIamPolicyJson } from "./utils/ingress-ctl-jsons"
 
 interface IngressCtlArgs {
-  projName: Input<string>;
   k8sProvider: k8s.Provider;
   oidcProviderArn: Input<string> | undefined;
   oidcProviderUrl: Input<string> | undefined;
@@ -21,8 +20,6 @@ export class IngressCtl extends pulumi.ComponentResource {
   constructor(name: string, args: IngressCtlArgs, opts?: pulumi.ComponentResourceOptions) {
     super("custom:x:IngressController", name, args, opts);
 
-    const nameBase = `${name}-ingress-ctl`
-    const projName = args.projName
     const k8sProvider = args.k8sProvider
     const oidcProviderArn = args.oidcProviderArn || "oidcProviderArn undefined"
     const oidcProviderUrl = args.oidcProviderUrl || "oidcProviderUrl undefined"
@@ -31,7 +28,7 @@ export class IngressCtl extends pulumi.ComponentResource {
     const awsRegion = args.awsRegion
     const namespaceName = args.namespaceName
 
-    const controller_name = `${projName}-alb-controller`
+    const controller_name = `${name}-alb-controller`
     const serviceAccountName = "aws-lb-controller-serviceaccount"
     const serviceAccountFull = `system:serviceaccount:${namespaceName}:${serviceAccountName}`
 
@@ -62,7 +59,7 @@ export class IngressCtl extends pulumi.ComponentResource {
       }`
     )
 
-    const ingressCtlIamRole = new aws.iam.Role(`${projName}-ingress-ctl-iam-role`, {
+    const ingressCtlIamRole = new aws.iam.Role(`${name}-ingress-ctl-iam-role`, {
       description: "Permissions required by the Kubernetes AWS ALB Ingress controller to do it's job.",
       forceDetachPolicies: true,
       assumeRolePolicy: assumeRolePolicy,
@@ -71,12 +68,12 @@ export class IngressCtl extends pulumi.ComponentResource {
     // Set up IAM policy using the permissions provided alongside the helm chart and found here:
     // https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.1.2/docs/install/iam_policy.json
     // and stored locally in ingress_ctl_jsons.py
-    const ingressCtlIamPolicy = new aws.iam.Policy(`${projName}-ingress-ctl-iam-policy`, {
+    const ingressCtlIamPolicy = new aws.iam.Policy(`${name}-ingress-ctl-iam-policy`, {
       policy: JSON.stringify(ingressCtlIamPolicyJson),
     }, {parent: this, dependsOn: ingressCtlIamRole})
 
     // Attach the policy to the role created above
-    const ingressCtlRoleAttachment = new aws.iam.PolicyAttachment(`${projName}-ingress-ctl-iam-role-attachment`, {
+    const ingressCtlRoleAttachment = new aws.iam.PolicyAttachment(`${name}-ingress-ctl-iam-role-attachment`, {
       policyArn: ingressCtlIamPolicy.arn,
       roles: [ingressCtlIamRole.name],
     }, {parent: this, dependsOn: [ingressCtlIamRole]})
@@ -99,7 +96,7 @@ export class IngressCtl extends pulumi.ComponentResource {
 
 
     // Chart found here: https://artifacthub.io/packages/helm/aws/aws-load-balancer-controller
-    const albControllerName = `${projName}-alb-controller`
+    const albControllerName = `${name}-alb-controller`
     const albController = new k8s.helm.v3.Chart(albControllerName, {
       chart: "aws-load-balancer-controller", // Get this from the second line of the helm chart artifact hub TL;DR
       fetchOpts: {
