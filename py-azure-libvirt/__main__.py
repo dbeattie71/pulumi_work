@@ -6,16 +6,18 @@ import pulumi_azure_native.compute as compute
 import pulumi_azure_native.network as network
 import pulumi_azure_native.resources as resources
 import pulumi_tls as tls
+# import pulumi_libvirt as libvirt
 
 config = Config()
 username = config.get("username") or "kvmuser"
+basename = config.get("basename") or "kvm-server"
 
 ssh_key = tls.PrivateKey("ssh-key", algorithm="RSA", rsa_bits=4096)
 
-resource_group = resources.ResourceGroup("server")
+resource_group = resources.ResourceGroup(f"{basename}-rg")
 
 net = network.VirtualNetwork(
-    "server-network",
+    f"{basename}-net",
     resource_group_name=resource_group.name,
     address_space=network.AddressSpaceArgs(
         address_prefixes=["10.0.0.0/16"],
@@ -26,27 +28,39 @@ net = network.VirtualNetwork(
     )])
 
 public_ip = network.PublicIPAddress(
-    "server-ip",
+    f"{basename}-ip",
     resource_group_name=resource_group.name,
     public_ip_allocation_method=network.IPAllocationMethod.DYNAMIC)
 
 network_iface = network.NetworkInterface(
-    "server-nic",
+    f"{basename}-nic",
     resource_group_name=resource_group.name,
     ip_configurations=[network.NetworkInterfaceIPConfigurationArgs(
-        name="webserveripcfg",
+        name="serveripcfg",
         subnet=network.SubnetArgs(id=net.subnets[0].id),
         private_ip_allocation_method=network.IPAllocationMethod.DYNAMIC,
         public_ip_address=network.PublicIPAddressArgs(id=public_ip.id),
     )])
 
-init_script = """#!/bin/bash
+# Script to configure kvm that is run on the server
+vms_dir = f"/home/{username}/vms"
+vms_store = "vms-store"
+init_script = f"""#!/bin/bash
 
-echo "Hello, World!" > index.html
-nohup python -m SimpleHTTPServer 80 &"""
+# Install KVM
+sudo apt update
+sudo apt-get -y install qemu-kvm libvirt-bin virtinst bridge-utils cpu-checker
+
+# Set up virsh pool
+VMS_DIR={vms_dir}
+VMS_STORE={vms_store}
+mkdir $VMS_DIR
+sudo virsh pool-define-as $VMS_STORE --type dir --target $VMS_DIR
+sudo virsh pool-start $VMS_STORE
+sudo virsh pool-autostart $VMS_STORE"""
 
 vm = compute.VirtualMachine(
-    "server-vm",
+    f"{basename}-vm",
     resource_group_name=resource_group.name,
     network_profile=compute.NetworkProfileArgs(
         network_interfaces=[
@@ -54,7 +68,7 @@ vm = compute.VirtualMachine(
         ],
     ),
     hardware_profile=compute.HardwareProfileArgs(
-        vm_size=compute.VirtualMachineSizeTypes.STANDARD_A0,
+        vm_size=compute.VirtualMachineSizeTypes.STANDARD_D4S_V3
     ),
     os_profile=compute.OSProfileArgs(
         computer_name="hostname",
@@ -88,4 +102,20 @@ public_ip_addr = combined_output.apply(
         public_ip_address_name=lst[1], 
         resource_group_name=lst[2]))
 export("public_ip", public_ip_addr.ip_address)
-export("ssh_private_key", ssh_key.private_key_pem)
+
+
+def write_key_file(priv_key, key_file):
+    f = open(key_file, "a")
+    f.write(priv_key)
+    f.close()
+
+key_file="server.priv"
+ssh_key.private_key_pem.apply(
+    lambda priv_key: write_key_file(priv_key, key_file)
+)
+export("ssh_private_key_file", key_file)
+
+# libvirt_provider = libvirt.Providre(f"{basename}-libvirt",
+#     uri=f"qemu+ssh://{username}@{public_ip}/system?keyfile=./{key_file}"
+# )
+
