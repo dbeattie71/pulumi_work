@@ -5,6 +5,7 @@
 - Outputs a file named, `server.priv` that contains the ssh private key for connecting to the KVM server.
 - (TODO) Deploys a VM on the KVM server using the Pulumi libvirt provider
   - https://github.com/pulumi/pulumi-libvirt
+  - https://www.pulumi.com/docs/reference/pkg/libvirt/
 
 # Prerequisites
 

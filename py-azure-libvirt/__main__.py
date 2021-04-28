@@ -1,12 +1,14 @@
 # Copyright 2016-2020, Pulumi Corporation.  All rights reserved.
 
 import base64
-from pulumi import Config, Output, export
+from pulumi import Config, Output, ResourceOptions, export
 import pulumi_azure_native.compute as compute
 import pulumi_azure_native.network as network
 import pulumi_azure_native.resources as resources
 import pulumi_tls as tls
-# import pulumi_libvirt as libvirt
+import pulumi_libvirt as libvirt
+import os as os
+import time
 
 config = Config()
 username = config.get("username") or "kvmuser"
@@ -58,6 +60,7 @@ mkdir $VMS_DIR
 sudo virsh pool-define-as $VMS_STORE --type dir --target $VMS_DIR
 sudo virsh pool-start $VMS_STORE
 sudo virsh pool-autostart $VMS_STORE"""
+# sudo usermod -a -G libvirtd kvmuser"""
 
 vm = compute.VirtualMachine(
     f"{basename}-vm",
@@ -104,18 +107,40 @@ public_ip_addr = combined_output.apply(
 export("public_ip", public_ip_addr.ip_address)
 
 
-def write_key_file(priv_key, key_file):
-    f = open(key_file, "a")
-    f.write(priv_key)
-    f.close()
+# def write_key_file(priv_key, key_file):
+#     os.chmod(key_file, 0o666)
+#     f = open(key_file, "a")
+#     f.write(priv_key)
+#     f.close()
+#     os.chmod(key_file, 0o400)
 
 key_file="server.priv"
-ssh_key.private_key_pem.apply(
-    lambda priv_key: write_key_file(priv_key, key_file)
-)
+# ssh_key.private_key_pem.apply(
+#     lambda priv_key: write_key_file(priv_key, key_file)
+# )
 export("ssh_private_key_file", key_file)
 
-# libvirt_provider = libvirt.Providre(f"{basename}-libvirt",
-#     uri=f"qemu+ssh://{username}@{public_ip}/system?keyfile=./{key_file}"
+libvirt_provider = libvirt.Provider(f"{basename}-libvirt",
+    uri=Output.concat("qemu+ssh://",username,"@",public_ip_addr.ip_address,"/system?keyfile=./",key_file,"&socket=/var/run/libvirt/libvirt-sock")
+)
+export("provider", libvirt_provider)
+
+import pulumi
+import pulumi_libvirt as libvirt
+
+# A pool for all cluster volumes
+opensuse_leap = libvirt.Volume("tinycore-11.1",
+    pool="vms-store",
+    source="http://downloads.sourceforge.net/project/gns-3/Qemu%20Appliances/linux-tinycore-11.1.qcow2",
+    opts=ResourceOptions(provider=libvirt_provider)
+)
+
+# default = libvirt.Domain(f"{basename}libvirtdomain",
+#     opts=ResourceOptions(provider=libvirt_provider)
 # )
 
+
+# opensuse_leap = libvirt.Volume(f"{basename}-suse-vol", 
+#     source="http://download.opensuse.org/repositories/Cloud:/Images:/Leap_42.1/images/openSUSE-Leap-42.1-OpenStack.x86_64.qcow2",
+#     opts=ResourceOptions(provider=libvirt_provider)
+# )
