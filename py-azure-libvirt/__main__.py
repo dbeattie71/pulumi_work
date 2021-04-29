@@ -1,6 +1,7 @@
 # Copyright 2016-2020, Pulumi Corporation.  All rights reserved.
 
 import base64
+import pulumi as pulumi
 from pulumi import Config, Output, ResourceOptions, export
 import pulumi_azure_native.compute as compute
 import pulumi_azure_native.network as network
@@ -8,13 +9,16 @@ import pulumi_azure_native.resources as resources
 import pulumi_tls as tls
 import pulumi_libvirt as libvirt
 import os as os
-import time
+
+stackname = pulumi.get_stack()
 
 config = Config()
 username = config.get("username") or "kvmuser"
 basename = config.get("basename") or "kvm-server"
+basename = f"{basename}-{stackname}"
 
 ssh_key = tls.PrivateKey("ssh-key", algorithm="RSA", rsa_bits=4096)
+
 
 resource_group = resources.ResourceGroup(f"{basename}-rg")
 
@@ -45,22 +49,26 @@ network_iface = network.NetworkInterface(
     )])
 
 # Script to configure kvm that is run on the server
+# It creates a pool as part of the set up.
 vms_dir = f"/home/{username}/vms"
 vms_store = "vms-store"
 init_script = f"""#!/bin/bash
 
 # Install KVM
 sudo apt update
-sudo apt-get -y install qemu-kvm libvirt-bin virtinst bridge-utils cpu-checker
+sudo apt-get -y install qemu-kvm libvirt-bin 
+sudo usermod -a -G libvirtd {username}
+"""
 
+# unnecessary stuff(?) for custom data script
+# sudo apt-get -y install virtinst bridge-utils cpu-checker
 # Set up virsh pool
-VMS_DIR={vms_dir}
-VMS_STORE={vms_store}
-mkdir $VMS_DIR
-sudo virsh pool-define-as $VMS_STORE --type dir --target $VMS_DIR
-sudo virsh pool-start $VMS_STORE
-sudo virsh pool-autostart $VMS_STORE"""
-# sudo usermod -a -G libvirtd kvmuser"""
+#VMS_DIR={vms_dir}
+#VMS_STORE={vms_store}
+#mkdir $VMS_DIR
+#sudo virsh pool-define-as $VMS_STORE --type dir --target $VMS_DIR
+#sudo virsh pool-start $VMS_STORE
+#sudo virsh pool-autostart $VMS_STORE
 
 vm = compute.VirtualMachine(
     f"{basename}-vm",
@@ -107,40 +115,50 @@ public_ip_addr = combined_output.apply(
 export("public_ip", public_ip_addr.ip_address)
 
 
-# def write_key_file(priv_key, key_file):
-#     os.chmod(key_file, 0o666)
-#     f = open(key_file, "a")
-#     f.write(priv_key)
-#     f.close()
-#     os.chmod(key_file, 0o400)
+# Generate the private key file for use by the provider
+def write_key_file(priv_key, key_file):
+    if (os.path.exists(key_file)):
+        os.chmod(key_file, 0o666)
+    f = open(key_file, "w")
+    f.write(priv_key)
+    f.close()
+    os.chmod(key_file, 0o400)
 
-key_file="server.priv"
-# ssh_key.private_key_pem.apply(
-#     lambda priv_key: write_key_file(priv_key, key_file)
-# )
+key_file=f"{basename}_server.priv"
+ssh_key.private_key_pem.apply(
+    lambda priv_key: write_key_file(priv_key, key_file)
+)
 export("ssh_private_key_file", key_file)
 
+# See https://libvirt.org/uri.html#URI_remote for details on the remote URI options
+libvirt_remote_uri = Output.concat("qemu+ssh://",username,"@",public_ip_addr.ip_address,"/system?keyfile=./",key_file,"&socket=/var/run/libvirt/libvirt-sock&no_verify=1")
 libvirt_provider = libvirt.Provider(f"{basename}-libvirt",
-    uri=Output.concat("qemu+ssh://",username,"@",public_ip_addr.ip_address,"/system?keyfile=./",key_file,"&socket=/var/run/libvirt/libvirt-sock")
+    uri=libvirt_remote_uri
 )
-export("provider", libvirt_provider)
 
-import pulumi
-import pulumi_libvirt as libvirt
+vm_pool = libvirt.Pool(f"{basename}-vm_pool",
+    args=libvirt.PoolArgs(type="dir", path=f"/home/{username}/vmstore"), 
+    opts=ResourceOptions(provider=libvirt_provider)
+)
+export("pool name", vm_pool.name)
 
-# A pool for all cluster volumes
-opensuse_leap = libvirt.Volume("tinycore-11.1",
-    pool="vms-store",
+# Create a tinycore linux volume
+tinycore_vol = libvirt.Volume("tinycore-11.1",
+    pool=vm_pool.name,
     source="http://downloads.sourceforge.net/project/gns-3/Qemu%20Appliances/linux-tinycore-11.1.qcow2",
     opts=ResourceOptions(provider=libvirt_provider)
 )
+export("tinycore_vol name", tinycore_vol.name)
+export("tinycore_vol id", tinycore_vol.id)
 
-# default = libvirt.Domain(f"{basename}libvirtdomain",
-#     opts=ResourceOptions(provider=libvirt_provider)
-# )
+vm = libvirt.Domain(f"{basename}-vm",
+    memory=512,
+    vcpu=1,
+    disks=[libvirt.DomainDiskArgs(
+        volume_id=tinycore_vol.id
+    )],
+    opts=ResourceOptions(provider=libvirt_provider)
+)
+export("vm", vm)
 
 
-# opensuse_leap = libvirt.Volume(f"{basename}-suse-vol", 
-#     source="http://download.opensuse.org/repositories/Cloud:/Images:/Leap_42.1/images/openSUSE-Leap-42.1-OpenStack.x86_64.qcow2",
-#     opts=ResourceOptions(provider=libvirt_provider)
-# )
