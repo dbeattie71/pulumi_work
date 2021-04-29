@@ -11,15 +11,15 @@ import pulumi_libvirt as libvirt
 import os as os
 
 stackname = pulumi.get_stack()
-
 config = Config()
 username = config.get("username") or "kvmuser"
 basename = config.get("basename") or "kvm-server"
 basename = f"{basename}-{stackname}"
 
+# SSH key for accessing the Azure VM that is going to be the KVM host.
 ssh_key = tls.PrivateKey("ssh-key", algorithm="RSA", rsa_bits=4096)
 
-
+# Resource group, etc for the kvm-server
 resource_group = resources.ResourceGroup(f"{basename}-rg")
 
 net = network.VirtualNetwork(
@@ -48,16 +48,16 @@ network_iface = network.NetworkInterface(
         public_ip_address=network.PublicIPAddressArgs(id=public_ip.id),
     )])
 
-# Script to configure kvm that is run on the server
-# It creates a pool as part of the set up.
-vms_dir = f"/home/{username}/vms"
-vms_store = "vms-store"
+# Script to configure the kvm service on the kvm host
 init_script = f"""#!/bin/bash
 
 # Install KVM
 sudo apt update
 sudo apt-get -y install qemu-kvm libvirt-bin 
 sudo usermod -a -G libvirtd {username}
+# hack to account for this bug: https://bugs.launchpad.net/ubuntu/+source/libvirt/+bug/1677398
+sudo echo security_driver = \\"none\\" >> /etc/libvirt/qemu.conf
+sudo systemctl restart libvirt-bin
 """
 
 # unnecessary stuff(?) for custom data script
@@ -97,12 +97,12 @@ vm = compute.VirtualMachine(
     storage_profile=compute.StorageProfileArgs(
         os_disk=compute.OSDiskArgs(
             create_option=compute.DiskCreateOptionTypes.FROM_IMAGE,
-            name="myosdisk1",
         ),
         image_reference=compute.ImageReferenceArgs(
             publisher="canonical",
             offer="UbuntuServer",
-            sku="16.04-LTS",
+            #sku="16.04-LTS",
+            sku="18.04-LTS",
             version="latest",
         ),
     ))
@@ -112,7 +112,7 @@ public_ip_addr = combined_output.apply(
     lambda lst: network.get_public_ip_address(
         public_ip_address_name=lst[1], 
         resource_group_name=lst[2]))
-export("public_ip", public_ip_addr.ip_address)
+export("KVM server IP", public_ip_addr.ip_address)
 
 
 # Generate the private key file for use by the provider
@@ -128,7 +128,7 @@ key_file=f"{basename}_server.priv"
 ssh_key.private_key_pem.apply(
     lambda priv_key: write_key_file(priv_key, key_file)
 )
-export("ssh_private_key_file", key_file)
+export("KVM server ssh private key file ", key_file)
 
 # See https://libvirt.org/uri.html#URI_remote for details on the remote URI options
 libvirt_remote_uri = Output.concat("qemu+ssh://",username,"@",public_ip_addr.ip_address,"/system?keyfile=./",key_file,"&socket=/var/run/libvirt/libvirt-sock&no_verify=1")
@@ -136,29 +136,36 @@ libvirt_provider = libvirt.Provider(f"{basename}-libvirt",
     uri=libvirt_remote_uri
 )
 
+vm_pool_dir = f"/home/{username}/vms"  # the "vm pool" will be under the user created on the KVM host
 vm_pool = libvirt.Pool(f"{basename}-vm_pool",
-    args=libvirt.PoolArgs(type="dir", path=f"/home/{username}/vmstore"), 
+    args=libvirt.PoolArgs(type="dir", path=vm_pool_dir), 
     opts=ResourceOptions(provider=libvirt_provider)
 )
-export("pool name", vm_pool.name)
+export("libvirt pool name", vm_pool.name)
 
-# Create a tinycore linux volume
-tinycore_vol = libvirt.Volume("tinycore-11.1",
+# Create a small linux volume
+vm_vol = libvirt.Volume("linux",
     pool=vm_pool.name,
-    source="http://downloads.sourceforge.net/project/gns-3/Qemu%20Appliances/linux-tinycore-11.1.qcow2",
+    source="http://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img",
+    format="qcow2",
     opts=ResourceOptions(provider=libvirt_provider)
 )
-export("tinycore_vol name", tinycore_vol.name)
-export("tinycore_vol id", tinycore_vol.id)
+export("libvirt volume name", vm_vol.name)
 
+# Create a VM using the volume created above.
 vm = libvirt.Domain(f"{basename}-vm",
     memory=512,
     vcpu=1,
     disks=[libvirt.DomainDiskArgs(
-        volume_id=tinycore_vol.id
+        volume_id=vm_vol.id
+    )],
+    network_interfaces=[libvirt.DomainNetworkInterfaceArgs(
+        network_name="default",
+        wait_for_lease=True,
     )],
     opts=ResourceOptions(provider=libvirt_provider)
 )
-export("vm", vm)
+export("libvirt VM name", vm.name)
 
-
+test_cmd = Output.concat('echo virsh list', vm.name, ' | ssh -i ', key_file, ' ',username,'@',public_ip_addr.ip_address)
+test_cmd.apply(lambda cmd: os.system(cmd))
