@@ -167,5 +167,5 @@ vm = libvirt.Domain(f"{basename}-vm",
 )
 export("libvirt VM name", vm.name)
 
-test_cmd = Output.concat('echo virsh list', vm.name, ' | ssh -i ', key_file, ' ',username,'@',public_ip_addr.ip_address)
-test_cmd.apply(lambda cmd: os.system(cmd))
+test_cmd = Output.concat('echo virsh list | ssh -i ', key_file, ' ',username,'@',public_ip_addr.ip_address)
+export("Check the libvirt VM on the KVM host", test_cmd)
