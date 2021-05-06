@@ -67,7 +67,7 @@ class Server(ComponentResource):
         # Install KVM
         sudo apt update
         sudo apt-get -y install qemu-kvm libvirt-bin 
-        #sudo usermod -a -G libvirtd {username}
+        # sudo usermod -a -G libvirtd {username}
         # hack to account for this bug: https://bugs.launchpad.net/ubuntu/+source/libvirt/+bug/1677398
         # Work around: https://bugs.launchpad.net/ubuntu/+source/libvirt/+bug/1677398/comments/42
         sudo sed -i '$ a security_driver = "none"' /etc/libvirt/qemu.conf
@@ -75,45 +75,44 @@ class Server(ComponentResource):
         
         """
 
-        # vm = compute.VirtualMachine(
-        #     f"{basename}-vm",
-        #     resource_group_name=resource_group.name,
-        #     network_profile=compute.NetworkProfileArgs(
-        #         network_interfaces=[
-        #             compute.NetworkInterfaceReferenceArgs(id=network_iface.id),
-        #         ],
-        #     ),
-        #     hardware_profile=compute.HardwareProfileArgs(
-        #         vm_size=compute.VirtualMachineSizeTypes.STANDARD_D4S_V3
-        #     ),
-        #     os_profile=compute.OSProfileArgs(
-        #         computer_name=computername,
-        #         admin_username=username,
-        #         # custom_data=base64.b64encode(init_script.encode("ascii")).decode("ascii"),
-        #         linux_configuration=compute.LinuxConfigurationArgs(
-        #             ssh=compute.SshConfigurationArgs(
-        #                 public_keys=[compute.SshPublicKeyArgs(
-        #                     key_data=ssh_key.public_key_openssh,
-        #                     path=f'/home/{username}/.ssh/authorized_keys'
-        #                 )]
-        #             )
-        #         )
-        #     ),
-        #     storage_profile=compute.StorageProfileArgs(
-        #         os_disk=compute.OSDiskArgs(
-        #             create_option=compute.DiskCreateOptionTypes.FROM_IMAGE,
-        #         ),
-        #         image_reference=compute.ImageReferenceArgs(
-        #             publisher="canonical",
-        #             offer="UbuntuServer",
-        #             sku="18.04-LTS",
-        #             version="latest",
-        #         ),
-        #     ),
-        #     opts=ResourceOptions(parent=self))
+        vm = compute.VirtualMachine(
+            f"{basename}-vm",
+            resource_group_name=resource_group.name,
+            network_profile=compute.NetworkProfileArgs(
+                network_interfaces=[
+                    compute.NetworkInterfaceReferenceArgs(id=network_iface.id),
+                ],
+            ),
+            hardware_profile=compute.HardwareProfileArgs(
+                vm_size=compute.VirtualMachineSizeTypes.STANDARD_D4S_V3
+            ),
+            os_profile=compute.OSProfileArgs(
+                computer_name=computername,
+                admin_username=username,
+                custom_data=base64.b64encode(init_script.encode("ascii")).decode("ascii"),
+                linux_configuration=compute.LinuxConfigurationArgs(
+                    ssh=compute.SshConfigurationArgs(
+                        public_keys=[compute.SshPublicKeyArgs(
+                            key_data=ssh_key.public_key_openssh,
+                            path=f'/home/{username}/.ssh/authorized_keys'
+                        )]
+                    )
+                )
+            ),
+            storage_profile=compute.StorageProfileArgs(
+                os_disk=compute.OSDiskArgs(
+                    create_option=compute.DiskCreateOptionTypes.FROM_IMAGE,
+                ),
+                image_reference=compute.ImageReferenceArgs(
+                    publisher="canonical",
+                    offer="UbuntuServer",
+                    sku="18.04-LTS",
+                    version="latest",
+                ),
+            ),
+            opts=ResourceOptions(parent=self))
 
-        # combined_output = Output.all(public_ip.name, resource_group.name, vm.id)
-        combined_output = Output.all(public_ip.name, resource_group.name)
+        combined_output = Output.all(public_ip.name, resource_group.name, vm.id)
         public_ip_addr = combined_output.apply(
             lambda lst: network.get_public_ip_address(
                 public_ip_address_name=lst[0], 
