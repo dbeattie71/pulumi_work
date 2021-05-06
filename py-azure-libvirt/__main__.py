@@ -39,7 +39,7 @@ vm_pool = libvirt.Pool(f"{basename}-vm_pool",
 export("libvirt pool name", vm_pool.name)
 
 # Create a small linux volume that contains a tiny (and thus fast to download) linux.
-vm_vol = libvirt.Volume("linux",
+vm_vol = libvirt.Volume(f"{basename}-linux",
     pool=vm_pool.name,
     source="http://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img",
     format="qcow2",

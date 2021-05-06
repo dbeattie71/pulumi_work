@@ -114,6 +114,7 @@ class Server(ComponentResource):
         # There's some delay between when Azure says the VM is ready and 
         # when the KVM/qemu service can start accepting connections.
         # So, wait a bit to allow the KVM server to become fully ready.
+        # But only do the wait if the VM has been provisioned (i.e. not during a preview).
         vm.provisioning_state.apply(lambda state: time.sleep(90))
 
         combined_output = Output.all(public_ip.name, resource_group.name, vm.id)
