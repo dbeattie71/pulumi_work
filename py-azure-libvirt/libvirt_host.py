@@ -1,7 +1,6 @@
-"""
-Builds a KVM host in Azure using an instance type that supports nested virtualization.
-It is set up so that libvirt can use an SSH connection URI.
-"""
+# Builds a KVM host in Azure using an instance type that supports nested virtualization.
+# It uses SSH remote connection URI.
+# See the following for more details: https://libvirt.org/uri.html#URI_remote
 
 import pulumi as pulumi
 from pulumi import ComponentResource, ResourceOptions
@@ -11,6 +10,7 @@ import pulumi_azure_native.network as network
 import pulumi_azure_native.resources as resources
 import pulumi_tls as tls
 import os as os
+import time as time
 import base64
 
 
@@ -67,7 +67,6 @@ class Server(ComponentResource):
         # Install KVM
         sudo apt update
         sudo apt-get -y install qemu-kvm libvirt-bin 
-        # sudo usermod -a -G libvirtd {username}
         # hack to account for this bug: https://bugs.launchpad.net/ubuntu/+source/libvirt/+bug/1677398
         # Work around: https://bugs.launchpad.net/ubuntu/+source/libvirt/+bug/1677398/comments/42
         sudo sed -i '$ a security_driver = "none"' /etc/libvirt/qemu.conf
@@ -94,7 +93,7 @@ class Server(ComponentResource):
                     ssh=compute.SshConfigurationArgs(
                         public_keys=[compute.SshPublicKeyArgs(
                             key_data=ssh_key.public_key_openssh,
-                            path=f'/home/{username}/.ssh/authorized_keys'
+                            path=f"/home/{username}/.ssh/authorized_keys"
                         )]
                     )
                 )
@@ -112,14 +111,18 @@ class Server(ComponentResource):
             ),
             opts=ResourceOptions(parent=self))
 
+        # There's some delay between when Azure says the VM is ready and 
+        # when the KVM/qemu service can start accepting connections.
+        # So, wait a bit to allow the KVM server to become fully ready.
+        vm.provisioning_state.apply(lambda state: time.sleep(90))
+
         combined_output = Output.all(public_ip.name, resource_group.name, vm.id)
         public_ip_addr = combined_output.apply(
             lambda lst: network.get_public_ip_address(
                 public_ip_address_name=lst[0], 
                 resource_group_name=lst[1]))
 
-        # Create the libvirt provider
-        # Generate the private key file for use by the libvirt provider
+        # Create/update the private key file for the SSH remote connection URI.
         def write_key_file(priv_key, key_file):
             if (os.path.exists(key_file)):
                 os.chmod(key_file, 0o666)
@@ -130,13 +133,17 @@ class Server(ComponentResource):
         key_file=f"{basename}_server.priv"
         ssh_key.private_key_pem.apply(lambda priv_key: write_key_file(priv_key, key_file))
 
-        # Build the connection URI and configure the libvirt provider to use it.
+        # Build the connection URI that is returned for use by the libvirt provider.
         # See https://libvirt.org/uri.html#URI_remote for details on the remote URI options
         self.libvirt_remote_uri = Output.concat("qemu+ssh://",username,"@",public_ip_addr.ip_address,"/system?keyfile=./",key_file,"&socket=/var/run/libvirt/libvirt-sock&no_verify=1")
+        
+        # Return where the VM pool should be created.
+        # In this case, the "vm pool" is simply placed under the KVM host user's home folder 
+        self.vm_pool_dir = f"/home/{username}/vms"  
 
+        # Other values for convenience to output useful information 
         self.ip = public_ip_addr.ip_address
         self.username = username
         self.ssh_priv_key_file = key_file
-        self.vm_pool_dir = f"/home/{username}/vms"  # the "vm pool" is placed under the KVM host user's home folder 
 
         self.register_outputs({})
