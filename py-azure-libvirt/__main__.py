@@ -18,13 +18,14 @@ basename = f"{basename}-{stackname}"
 # Create a KVM host
 libvirt_server = libvirt_host.Server(basename)
 
-# Create a provider using the connection URI for the libvirt host
+# # Create a provider using the connection URI for the libvirt host
 # libvirt_provider = libvirt.Provider(f"{basename}-libvirt",
 #     uri=libvirt_server.libvirt_remote_uri
 # )
 # pulumi.export("provider", libvirt_provider)
 
-# # Build a VM on the KVM host.
+# ### Build a VM on the KVM host.
+# # Create a storage pool
 # vm_pool = libvirt.Pool(f"{basename}-vm_pool",
 #     args=libvirt.PoolArgs(type="dir", path=libvirt_server.vm_pool_dir), 
 #     opts=ResourceOptions(provider=libvirt_provider)
@@ -56,5 +57,5 @@ libvirt_server = libvirt_host.Server(basename)
 # )
 # export("libvirt VM name", vm.name)
 
-# test_cmd = Output.concat('echo virsh list | ssh -i ', key_file, ' ',libvirt_server.username,'@',libvirt_server.ip)
-# export("Check the libvirt VM on the KVM host", test_cmd)
+test_cmd = Output.concat('echo virsh list | ssh -i ', libvirt_server.ssh_priv_key_file, ' ',libvirt_server.username,'@',libvirt_server.ip)
+export("Check the libvirt VM on the KVM host", test_cmd)
