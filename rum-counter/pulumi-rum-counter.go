@@ -44,19 +44,27 @@ import (
 	//"reflect"
 )
 
-type Project struct {
+type ApiProject struct {
 	orgName     string
-	projectName string
 	repoName    string
-	runTime     string
-	stacks      []Stack
+	name        string
+	runtime     string
+	description string
+	stacks      []ApiStack
 }
 
-type Stack struct {
-	stackName           string
-	lastUpdateStartTime int
-	lastUpdateResult    string
-	resourceCount       int
+type ApiStack struct {
+	name       string
+	lastUpdate struct {
+		result       string
+		startTime    string
+		endTime      string
+		resoureCount int
+	}
+	routingRepo       string
+	routingProject    string
+	tags              string
+	protectedByPolicy string
 }
 
 type RumMetrics struct {
@@ -112,13 +120,11 @@ func main() {
 func getRumMetrics(service_host string, access_token string, org string) RumMetrics {
 	rumMetrics := new(RumMetrics)
 	rumMetrics.totalRum = 99999
-	_ = getProjects(service_host, access_token, org)
+	getProjects(service_host, access_token, org)
 	return *rumMetrics
 }
 
-func getProjects(service_host string, access_token string, org string) []Project {
-
-	projects := new([]Project)
+func getProjects(service_host string, access_token string, org string) {
 
 	url := "https://api." + service_host + "/api/console/orgs/" + org + "/repos"
 	method := "GET"
@@ -144,26 +150,53 @@ func getProjects(service_host string, access_token string, org string) []Project
 	body, _ := ioutil.ReadAll(res.Body)
 	fmt.Println(string(body))
 
-	// Since the search results is a json with an array of json,
-	// Create an array of one of these interface things to unmarshal the stringified json into
-	var searchResults map[string]interface{}
-	err = json.Unmarshal([]byte(body), &searchResults)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(4)
-	}
-	// now searchResults is json an array of structures that we can index.
-	// There's only one result so we're hardcoding the array index and we only care about the uuid
-	fmt.Println("searchResults")
-	fmt.Println(searchResults)
-
-	if len(searchResults) > 0 {
-		return searchResults.(string)
-	} else {
-		return "NOTFOUND"
+	var reposApiResponse ReposApiResponse
+	if err := json.Unmarshal(body, &reposApiResponse); err != nil { // Parse []byte to the go struct pointer
+		fmt.Println("Can not unmarshal JSON")
 	}
 
-	return *projects
+	projects := reposApiResponse.Repositories[0].Projects
+
+	for _, project := range projects {
+		projName := project.Name
+		stacks := project.Stacks
+		var stacksMetrics []StackMetric
+
+		for _, stack := range stacks {
+			stackName := stack.Name
+			stackRum := 0
+			if stack.LastUpdate != nil {
+				stackRum = stack.LastUpdate.ResourceCount
+			}
+			stackMetric := StackMetric{stackName, stackRum}
+			stacksMetrics = append(stacksMetrics, stackMetric)
+		}
+		fmt.Printf("proj name: %s; ", project.Name)
+	}
+
+	// fmt.Printf("num projects %d\n", len(projects))
+	// fmt.Println(reposApiResponse)
+
+	// // Since the search results is a json with an array of json,
+	// // Create an array of one of these interface things to unmarshal the stringified json into
+	// var unMarshallErr = json.Unmarshal(body.respositories[0].projects, &projects)
+	// var unMarshallErr = json.Unmarshal([]byte(body), &responseActions)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(4)
+	// }
+	// // now searchResults is json an array of structures that we can index.
+	// // There's only one result so we're hardcoding the array index and we only care about the uuid
+	// fmt.Println("searchResults")
+	// fmt.Println(searchResults)
+
+	// if len(searchResults) > 0 {
+	// 	return searchResults.(string)
+	// } else {
+	// 	return "NOTFOUND"
+	// }
+
+	//return *projects
 }
 
 // // Using the data found in the various maps, assemble API calls to push PowerBi to push the data stream
@@ -459,3 +492,48 @@ func getProjects(service_host string, access_token string, org string) []Project
 
 // 	return jsessionid_cookie
 // }
+
+// AUTO GENERATED from here: https://mholt.github.io/json-to-go/
+// You can use PostMan to get a response and then use the json-to-go to create this struct.
+// Be sure to remove initial Projects that are missing Stacks Lastupdate structure.
+type ReposApiResponse struct {
+	OrganizationFeatures struct {
+		AuditLogsEnabled            bool `json:"auditLogsEnabled"`
+		CrossGuardEnabled           bool `json:"crossGuardEnabled"`
+		WebhooksEnabled             bool `json:"webhooksEnabled"`
+		IntegrationAssistantEnabled bool `json:"integrationAssistantEnabled"`
+		TeamSkuAvailable            bool `json:"teamSkuAvailable"`
+	} `json:"organizationFeatures"`
+	Repositories []struct {
+		OrgName  string      `json:"orgName"`
+		Name     string      `json:"name"`
+		VcsInfo  interface{} `json:"vcsInfo"`
+		Projects []struct {
+			OrgName     string `json:"orgName"`
+			RepoName    string `json:"repoName"`
+			Name        string `json:"name"`
+			Runtime     string `json:"runtime"`
+			Description string `json:"description,omitempty"`
+			Stacks      []struct {
+				Name       string `json:"name"`
+				LastUpdate struct {
+					Result        string `json:"result"`
+					StartTime     int    `json:"startTime"`
+					EndTime       int    `json:"endTime"`
+					ResourceCount int    `json:"resourceCount"`
+				} `json:"lastUpdate"`
+				RoutingRepo    string `json:"routingRepo"`
+				RoutingProject string `json:"routingProject"`
+				Tags           struct {
+					GitHubOwner           string `json:"gitHub:owner"`
+					PulumiDescription     string `json:"pulumi:description"`
+					PulumiProject         string `json:"pulumi:project"`
+					PulumiRuntime         string `json:"pulumi:runtime"`
+					PulumiSecretsProvider string `json:"pulumi:secrets_provider"`
+				} `json:"tags"`
+				ProtectedByPolicy bool `json:"protectedByPolicy"`
+			} `json:"stacks"`
+		} `json:"projects"`
+	} `json:"repositories"`
+	ContinuationToken interface{} `json:"continuationToken"`
+}
