@@ -23,7 +23,7 @@ A Pulumi access token that has access to the specified organization.
 The pulumi organization from which to gather the metrics.
 
 CROSS-COMPLIATION NOTES
-env GOOS=windows GOARCH=amd64 go build ./push_turbo_cluster_actions.go
+env GOOS=windows GOARCH=amd64 go build ./pulumi-rum-counter.go
 
 */
 
@@ -146,7 +146,7 @@ func getProjects(service_host string, access_token string, org string) []Project
 
 	// Since the search results is a json with an array of json,
 	// Create an array of one of these interface things to unmarshal the stringified json into
-	var searchResults []map[string]interface{}
+	var searchResults map[string]interface{}
 	err = json.Unmarshal([]byte(body), &searchResults)
 	if err != nil {
 		fmt.Println(err)
@@ -154,14 +154,14 @@ func getProjects(service_host string, access_token string, org string) []Project
 	}
 	// now searchResults is json an array of structures that we can index.
 	// There's only one result so we're hardcoding the array index and we only care about the uuid
-	//fmt.Println("searchResults")
-	//fmt.Println(searchResults)
+	fmt.Println("searchResults")
+	fmt.Println(searchResults)
 
-	// if len(searchResults) > 0 {
-	// 	return searchResults.(string)
-	// } else {
-	// 	return "NOTFOUND"
-	// }
+	if len(searchResults) > 0 {
+		return searchResults.(string)
+	} else {
+		return "NOTFOUND"
+	}
 
 	return *projects
 }
